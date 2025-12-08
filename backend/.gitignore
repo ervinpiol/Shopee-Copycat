@@ -8,3 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+
+# 🔑 Environment Variables
+.env
+.env.*
+!.env.example # Optional: Keep an example file committed (if one exists)

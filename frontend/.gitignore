@@ -11,3 +11,9 @@ yarn-error.log*
 
 # OS files
 .DS_Store
+
+
+# 🔑 Environment Variables
+.env
+.env.*
+!.env.example # Optional: Keep an example file committed (if one exists)
