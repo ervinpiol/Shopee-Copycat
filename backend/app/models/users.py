@@ -7,7 +7,7 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=True)
+    name = Column(String, nullable=False,)
 
     # Todos owned by user
     todos = relationship(
