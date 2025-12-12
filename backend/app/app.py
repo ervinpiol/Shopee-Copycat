@@ -1,8 +1,11 @@
+from collections.abc import AsyncGenerator
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from starlette.middleware.cors import CORSMiddleware
 
-from app.db import Base, engine
+from app.core.engine import warm_up_connections
+from app.core.config import settings
+
 from app.routes.users import auth_backend, fastapi_users
 from app.schemas.users import UserRead, UserCreate, UserUpdate
 
@@ -14,48 +17,37 @@ from app.routes.checkout import router as checkout_router
 from app.routes.order import router as order_router
 
 
-# ----------------------------
-# Database Initialization
-# ----------------------------
-async def create_db_and_tables():
-    """Initializes the database and creates all defined tables."""
-    print("Database initialization starting...")
-    
-    # Import all models here so Base.metadata knows all tables
-    from app.models.users import User
-    from app.models.todo import Todo
-    from app.models.product import Product
-    from app.models.cart import CartItem
-    from app.models.order import Order
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("Database tables created successfully.")
-
-
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    await create_db_and_tables()
+async def lifespan(app: FastAPI) -> AsyncGenerator:
+    print("API lifespan started")
+    await warm_up_connections()
+    # TODO: warmup database and cache connections
     yield
+    # close all connections
+    print("API lifespan ended")
 
 
-# ----------------------------
-# FastAPI App
-# ----------------------------
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan, title="Fullstack", version="v0.1.0"
+)
 
 # ----------------------------
 # CORS Middleware
 # ----------------------------
-origins = ["http://localhost:3000"]  # your Next.js dev server
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 
 # ----------------------------
 # Auth Routes (Cookie-based)
