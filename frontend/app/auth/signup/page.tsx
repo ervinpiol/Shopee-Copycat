@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
   });
@@ -45,12 +46,22 @@ export default function SignupPage() {
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         <div>
-          <label className="block text-sm mb-1 font-medium">Name</label>
+          <label className="block text-sm mb-1 font-medium">First Name</label>
           <Input
-            type="name"
+            type="first_name"
             required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            value={form.first_name}
+            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 font-medium">Last Name</label>
+          <Input
+            type="last_name"
+            required
+            value={form.last_name}
+            onChange={(e) => setForm({ ...form, last_name: e.target.value })}
           />
         </div>
 

@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    command: uvicorn app.app:app --host 0.0.0.0 --reload
+    container_name: fastapi
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: postgresql+asyncpg://postgres.bzyxwswrtcdatuwyvhmv:xnctz5etAfZLujEg@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
+    restart: on-failure
