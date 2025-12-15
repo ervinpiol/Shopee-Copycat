@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { ProductCard } from "@/components/product-card";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import Link from "next/link";

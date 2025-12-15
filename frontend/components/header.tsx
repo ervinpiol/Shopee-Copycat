@@ -56,6 +56,10 @@ export function Header() {
             Shop
           </Link>
 
+          <Link href="/orders" className={getLinkClasses("/orders")}>
+            Orders
+          </Link>
+
           <Link href="/todo" className={getLinkClasses("/todo")}>
             Todo App
           </Link>

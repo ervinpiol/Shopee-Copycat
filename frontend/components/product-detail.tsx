@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Star, Heart, ShoppingCart, Check } from "lucide-react";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/types";
 import { useCart } from "@/context/CartContext"; // adjust path
 import { EditProductModal } from "./edit-product-modal";
 import { Spinner } from "./spinner";
