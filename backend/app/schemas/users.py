@@ -1,12 +1,16 @@
 from fastapi_users import schemas
 
 class UserRead(schemas.BaseUser[int]):
-    pass
+    first_name: str
+    last_name: str
+    is_seller: bool
 
 class UserCreate(schemas.BaseUserCreate):
     first_name: str
     last_name: str
-    pass
+    is_seller: bool = False
 
 class UserUpdate(schemas.BaseUserUpdate):
-    pass
+    first_name: str | None = None
+    last_name: str | None = None
+    is_seller: bool | None = None

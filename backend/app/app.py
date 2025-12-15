@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from starlette.middleware.cors import CORSMiddleware
 
 from app.core.engine import warm_up_connections
+from app.core.redis import RedisClient
 from app.core.config import settings
 
 from app.routes.users import auth_backend, fastapi_users
@@ -18,13 +19,18 @@ from app.routes.order import router as order_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator:
+async def lifespan(app: FastAPI):
     print("API lifespan started")
-    await warm_up_connections()
-    # TODO: warmup database and cache connections
+
+    await warm_up_connections()  # DB, external APIs, etc.
+    await RedisClient.init()
+
+    print("Redis connected")
+
     yield
-    # close all connections
-    print("API lifespan ended")
+
+    await RedisClient.close()
+    print("Redis closed")
 
 
 app = FastAPI(
