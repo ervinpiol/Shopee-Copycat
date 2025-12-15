@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
+import { Spinner } from "./spinner";
+import { useState } from "react";
 
 export function Header() {
   const { itemCount } = useCart();
   const { user } = useAuth(); // 👈 get logged-in user
   const pathname = usePathname();
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   const baseClasses = "font-medium";
 
@@ -27,6 +30,7 @@ export function Header() {
 
   // 👇 LOGOUT HANDLER
   async function handleLogout() {
+    setLoading(true);
     try {
       await axios.post(
         "http://localhost:8000/auth/jwt/logout",
@@ -38,11 +42,14 @@ export function Header() {
       router.refresh(); // refresh the page state
     } catch (err) {
       console.error("Logout failed", err);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      {loading && <Spinner />}
       <div className="container mx-auto px-4 flex items-center justify-between gap-4 h-16">
         <div className="flex items-center gap-10">
           <Link href="/products" className={getLinkClasses("/products")}>

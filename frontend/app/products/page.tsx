@@ -9,6 +9,7 @@ import { Header } from "@/components/header";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { Loading } from "@/components/loading";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,13 +52,13 @@ export default function Home() {
 
           <Link href="/products/new">
             <Button>
-              <Plus /> Create New Product
+              <Plus size={20} /> Create New Product
             </Button>
           </Link>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">Loading products...</div>
+          <Loading />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {products.map((product) => (
