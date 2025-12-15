@@ -27,9 +27,14 @@ PRODUCT_CACHE_KEY = "products:{id}"
 # Cache helpers
 # ======================
 
-async def invalidate_products_cache(redis: Redis) -> None:
-    """Invalidate product list cache"""
+async def invalidate_products_list_cache(redis: Redis) -> None:
+    """Invalidate the products list cache"""
     await redis.delete(PRODUCTS_CACHE_KEY)
+
+
+async def invalidate_product_cache(redis: Redis, product_id: int) -> None:
+    """Invalidate a single product cache"""
+    await redis.delete(PRODUCT_CACHE_KEY.format(id=product_id))
 
 
 @router.get("", response_model=List[ProductRead])
@@ -103,7 +108,7 @@ async def create_product(
         await session.commit()
         await session.refresh(product)
 
-        await invalidate_products_cache(redis)
+        await invalidate_products_list_cache(redis)
 
         return ProductRead.model_validate(product)
 
@@ -138,7 +143,8 @@ async def update_product(
         await session.commit()
         await session.refresh(product)
 
-        await invalidate_products_cache(redis)
+        await invalidate_products_list_cache(redis)
+        await invalidate_product_cache(redis, product_id=product_id)
         await redis.delete(PRODUCT_CACHE_KEY.format(id=product_id))
 
         return ProductRead.model_validate(product)
@@ -167,7 +173,7 @@ async def delete_product(
         await session.delete(product)
         await session.commit()
 
-        await invalidate_products_cache(redis)
+        await invalidate_products_list_cache(redis)
         await redis.delete(PRODUCT_CACHE_KEY.format(id=product_id))
 
         return {"success": True, "message": "Product successfully deleted"}
