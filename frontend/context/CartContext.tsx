@@ -27,6 +27,8 @@ interface CartContextType {
   cartItems: CartItem[];
   itemCount: number;
   subtotal: number;
+  isFetching: boolean;
+  isProcessing: boolean;
   refreshCart: () => void;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
   updateQuantity: (
@@ -41,12 +43,15 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth(); // <-- Detect login
+  const { user, loading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchCartItems = async () => {
-    if (!user) return; // ⛔ Do not fetch if not logged in
+    if (!user) return;
 
+    setIsFetching(true);
     try {
       const { data } = await axios.get("http://localhost:8000/cart/items", {
         withCredentials: true,
@@ -54,23 +59,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCartItems(data);
     } catch (err) {
       console.error("Failed to fetch cart items", err);
+    } finally {
+      setIsFetching(false);
     }
   };
 
   useEffect(() => {
-    // Wait until auth is done loading
     if (!loading) {
       fetchCartItems();
     }
   }, [user, loading]);
 
-  // Add to cart
   const addToCart = async (productId: string, quantity = 1) => {
     if (!user) {
       alert("Please login first.");
       return;
     }
 
+    setIsProcessing(true);
     try {
       const existingItem = cartItems.find(
         (item) => item.product.id === productId
@@ -102,6 +108,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       console.error("Failed to add item", err);
       alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -112,6 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   ) => {
     if (!user) return;
 
+    setIsProcessing(true);
     try {
       const { data } = await axios.put(
         `http://localhost:8000/cart/items/${cartItemId}`,
@@ -126,12 +135,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       console.error("Failed to update quantity", err);
       alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const removeItem = async (cartItemId: string, productId: string) => {
     if (!user) return;
 
+    setIsProcessing(true);
     try {
       await axios.delete(`http://localhost:8000/cart/items/${cartItemId}`, {
         data: { product_id: productId },
@@ -141,6 +153,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       console.error("Failed to remove item", err);
       alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -160,6 +174,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems,
         itemCount,
         subtotal,
+        isFetching,
+        isProcessing,
         refreshCart: fetchCartItems,
         addToCart,
         updateQuantity,

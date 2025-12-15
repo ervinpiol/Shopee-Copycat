@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     postgres_db: str = os.getenv("POSTGRES_DB", "postgres")
     SUPABASE_DB_URL: str = os.getenv("SUPABASE_DB_URL", "changeths")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "changeths")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "SUPABASE_URL")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "SUPABASE_KEY")
 
     # Redis Configuration
     redis_host: str = os.getenv("REDIS_HOST", "localhost")

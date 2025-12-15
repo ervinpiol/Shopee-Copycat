@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,6 +56,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4 w-full">
+      {loading && <Spinner />}
       <form
         onSubmit={handleLogin}
         className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm space-y-4"

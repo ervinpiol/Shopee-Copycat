@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 
@@ -31,11 +30,19 @@ export function ProductCard({
     >
       <CardContent className="p-0">
         <div className="relative w-full aspect-square bg-muted overflow-hidden">
-          <Image
-            src={"/premium-wireless-headphones.png"}
+          <img
+            src={image}
             alt={name}
-            fill
-            className="object-cover group-hover:scale-110 transition-transform duration-300"
+            className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-300"
+            onError={(e) => {
+              e.currentTarget.style.display = "none"; // hide broken img
+              e.currentTarget.insertAdjacentHTML(
+                "afterend",
+                `<span class="text-2xl bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-full h-full">
+                                        ${name.charAt(0)}
+                                      </span>`
+              );
+            }}
           />
         </div>
         <div className="p-4 space-y-3">

@@ -12,7 +12,7 @@ class ProductBase(BaseModel):
     price: float = Field(..., ge=0, example=59.99)
     stock: int = Field(..., ge=0, example=100)
     is_active: bool = Field(default=True)
-    image: Optional[str] = Field(None, example="/product-image.png")
+    image: Optional[str] = Field(None, example="https://your-supabase-url/products/image.png")
     rating: Optional[float] = Field(0.0, ge=0, le=5, example=4.5)
     reviews: Optional[int] = Field(0, ge=0, example=123)
     category: Optional[CategoryLiteral] = Field(None, example="Accessories")
