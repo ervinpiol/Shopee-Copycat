@@ -85,7 +85,7 @@ async def get_product(
     
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 async def create_product(
-    product_in: ProductCreate,
+    product_create: ProductCreate,
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
     redis: Redis = Depends(get_redis)
@@ -95,7 +95,7 @@ async def create_product(
     """
     try:
         product = Product(
-            **product_in.model_dump(exclude_unset=True),
+            **product_create.model_dump(exclude_unset=True),
             owner_id=current_user.id
         )
 
@@ -114,7 +114,7 @@ async def create_product(
 @router.patch("/{product_id}")
 async def update_product(
     product_id: int,
-    product_in: ProductUpdate = Body(...),
+    product_update: ProductUpdate = Body(...),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
     redis: Redis = Depends(get_redis)
@@ -131,7 +131,7 @@ async def update_product(
         if product.owner_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to update this product")
         
-        update_data = product_in.model_dump(exclude_unset=True)
+        update_data = product_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(product, key, value)
 
