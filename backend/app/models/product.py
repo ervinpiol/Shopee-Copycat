@@ -26,4 +26,8 @@ class Product(Base):
     owner = relationship("User", back_populates="products")
 
     # ✅ Correct relationship
-    order_items = relationship("OrderItem", back_populates="product")
+    order_items = relationship(
+        "OrderItem",
+        back_populates="product",
+        cascade="all, delete-orphan"
+    )
