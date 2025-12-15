@@ -144,9 +144,8 @@ async def update_quantity(
         if product.stock < quantity_change:
             raise HTTPException(status_code=400, detail="Not enough stock")
         
-        # Update cart and product
+        # Update cart
         cart_item.quantity = item.quantity
-        product.stock -= quantity_change
         if product.stock <= 0:
             product.is_active = False
 
