@@ -23,12 +23,16 @@ export default function CreateProductPage() {
     description: "",
     price: "",
     stock: "",
-    image: "",
     category: "",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleFileChange = (e: any) => {
+    setImageFile(e.target.files[0]);
   };
 
   const handleSubmit = async (e: any) => {
@@ -36,20 +40,18 @@ export default function CreateProductPage() {
     setLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("price", String(form.price));
+      formData.append("stock", String(form.stock));
+      if (form.category) formData.append("category", form.category);
+      if (imageFile) formData.append("image", imageFile);
+
       const res = await fetch("http://localhost:8000/product", {
         method: "POST",
-        credentials: "include", // IMPORTANT to send cookies
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-          price: Number(form.price),
-          stock: Number(form.stock),
-          image: form.image,
-          category: form.category || null,
-        }),
+        credentials: "include", // send cookies
+        body: formData, // FormData automatically sets multipart/form-data
       });
 
       if (!res.ok) {
@@ -120,14 +122,13 @@ export default function CreateProductPage() {
 
             {/* Image */}
             <div>
-              <label className="block mb-1 font-medium">Image URL</label>
-              <Input name="image" value={form.image} onChange={handleChange} />
+              <label className="block mb-1 font-medium">Image</label>
+              <Input type="file" onChange={handleFileChange} />
             </div>
 
             {/* Category */}
             <div>
               <label className="block mb-1 font-medium">Category</label>
-
               <Select
                 onValueChange={(value) => setForm({ ...form, category: value })}
                 value={form.category}

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Star, Heart, ShoppingCart, Check } from "lucide-react";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/context/CartContext"; // adjust path
@@ -66,12 +64,19 @@ export function ProductDetail({ productId }: ProductDetailProps) {
       {/* Product Image */}
       <div className="flex items-center justify-center bg-muted rounded-lg overflow-hidden">
         <div className="relative w-full aspect-square">
-          <Image
-            src={"/premium-wireless-headphones.png"}
+          <img
+            src={product.image}
             alt={product.name}
-            fill
-            className="object-cover"
-            priority
+            className="object-contain w-full h-full group-hover:scale-110 transition-transform duration-300"
+            onError={(e) => {
+              e.currentTarget.style.display = "none"; // hide broken img
+              e.currentTarget.insertAdjacentHTML(
+                "afterend",
+                `<span class="text-2xl bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-full h-full">
+                                        ${product.name.charAt(0)}
+                                      </span>`
+              );
+            }}
           />
         </div>
       </div>

@@ -4,7 +4,6 @@ import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingCart, Trash2 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/header";
 import axios from "axios";
@@ -51,6 +50,8 @@ export default function Cart() {
     );
   }
 
+  console.log(cartItems);
+
   return (
     <div className="w-full">
       <Header />
@@ -63,11 +64,18 @@ export default function Cart() {
             {cartItems.map((item, index) => (
               <Card key={`${item.id}-${index}`} className="p-4 flex gap-4">
                 <div className="relative w-24 h-24 shrink-0 bg-muted rounded-lg overflow-hidden">
-                  <Image
-                    src={"/premium-wireless-headphones.png"}
+                  <img
+                    src={item.product.image}
                     alt={item.product.name}
-                    fill
-                    className="object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none"; // hide broken img
+                      e.currentTarget.insertAdjacentHTML(
+                        "afterend",
+                        `<span class="text-2xl bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-full h-full">
+                                        ${item.product.name.charAt(0)}
+                                      </span>`
+                      );
+                    }}
                   />
                 </div>
                 <div className="flex-1 flex flex-col justify-between">
