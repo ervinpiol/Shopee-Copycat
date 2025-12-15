@@ -9,16 +9,14 @@ from app.models.cart import CartItem
 
 from redis.asyncio import Redis
 from app.core.redis import get_redis
-from app.routes.product import invalidate_product_cache, invalidate_products_list_cache
+from app.core.cache import CacheManager
+
+PRODUCTS_CACHE_KEY = "products:all"
+PRODUCT_CACHE_KEY = "products:{id}"
+CARTS_CACHE_KEY = "carts:{user_id}"
 
 router = APIRouter(prefix="/checkout", tags=["Checkout"])
 
-CACHE_TTL = 300  # 5 minutes
-CARTS_CACHE_KEY = "carts:{user_id}"  # per-user cart cache
-
-async def invalidate_carts_cache(redis: Redis, user_id: int) -> None:
-    """Invalidate cart list cache for a specific user"""
-    await redis.delete(CARTS_CACHE_KEY.format(user_id=user_id))
 
 @router.post("")
 async def checkout(
@@ -27,6 +25,7 @@ async def checkout(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         result = await session.execute(
             select(CartItem).where(CartItem.owner_id == current_user.id)
         )
@@ -79,19 +78,17 @@ async def checkout(
 
         await session.commit()
 
-        # ======================
-        # Cache invalidation
-        # ======================
-
         # Invalidate cart cache
-        await invalidate_carts_cache(redis, current_user.id)
+        await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))
 
         # Invalidate product caches
         for product_id in product_ids:
-            await invalidate_product_cache(redis, product_id)
+            # await invalidate_product_cache(redis, product_id)
+            await cache.invalidate(PRODUCTS_CACHE_KEY)
+            await cache.invalidate(PRODUCT_CACHE_KEY.format(id=product_id))
 
         # Invalidate product list cache
-        await invalidate_products_list_cache(redis)
+        # await invalidate_products_list_cache(redis)
 
         return {"success": True, "message": "Checkout successful!"}
     

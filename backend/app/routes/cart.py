@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -13,16 +13,11 @@ from typing import List
 from redis.asyncio import Redis
 import json
 from app.core.redis import get_redis
+from app.core.cache import CacheManager
 
 router = APIRouter(prefix="/cart/items", tags=["Cart"])
 
-CACHE_TTL = 300
 CARTS_CACHE_KEY = "carts:{user_id}" 
-
-async def invalidate_carts_cache(redis: Redis, user_id: int) -> None:
-    """Invalidate cart list cache for a specific user"""
-    await redis.delete(CARTS_CACHE_KEY.format(user_id=user_id))
-    
 
 @router.get("", response_model=List[CartItemRead])
 async def get_cart_items(
@@ -31,6 +26,7 @@ async def get_cart_items(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         cache_key = CARTS_CACHE_KEY.format(redis, user_id=current_user.id)
 
         cached = await redis.get(cache_key)
@@ -44,7 +40,7 @@ async def get_cart_items(
         items = result.scalars().all()
 
         data = [CartItemRead.model_validate(c).model_dump() for c in items]
-        await redis.setex(cache_key, CACHE_TTL, json.dumps(data)) 
+        await cache.set(cache_key, json.dumps(data))
 
         return data
 
@@ -60,6 +56,7 @@ async def add_to_cart(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         # Check product
         result = await session.execute(
             select(Product).where(Product.id == item.product_id)
@@ -93,7 +90,7 @@ async def add_to_cart(
 
         await session.commit()
         await session.refresh(existing_item)
-        await invalidate_carts_cache(redis, current_user.id)
+        await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))
 
         return existing_item
 
@@ -116,6 +113,7 @@ async def update_quantity(
     and adjust the product stock accordingly.
     """
     try:
+        cache = CacheManager(redis)
         # Get cart item
         result = await session.execute(
             select(CartItem)
@@ -156,7 +154,7 @@ async def update_quantity(
         session.add(product)
         await session.commit()
         await session.refresh(cart_item, attribute_names=["product"])
-        await invalidate_carts_cache(redis, current_user.id)
+        await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))
 
         return cart_item
 
@@ -177,6 +175,7 @@ async def remove_product(
     and optionally restore the product stock.
     """
     try:
+        cache = CacheManager(redis)
         # Get cart item
         result = await session.execute(
             select(CartItem)
@@ -196,8 +195,7 @@ async def remove_product(
         # Remove item from the cart
         await session.delete(cart_item)
         await session.commit()
-        await invalidate_carts_cache(redis, current_user.id)
-
+        await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))
 
         return {"success": True, "message": "Product successfully removed from the cart"}
 

@@ -1,32 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List
+from typing import List, Optional
 
 from app.db import get_async_session
 from app.models.todo import Todo
 from app.schemas.todo import TodoCreate, TodoRead, TodoUpdate
-from typing import Optional
 from app.routes.users import fastapi_users
 from app.models.users import User
 
 from redis.asyncio import Redis
-import json
 from app.core.redis import get_redis
+from app.core.cache import CacheManager
+import json
 
 router = APIRouter(prefix="/todo", tags=["Todo"])
 
-CACHE_TTL = 300  # 5 minutes
-TODOS_CACHE_KEY = "todos:all"
 TODO_CACHE_KEY = "todos:{id}"
-
-
-async def invalidate_todos_cache(redis: Redis, user_id: int) -> None:
-    """Invalidate todo list cache for a user"""
-    # Invalidate all possible cached lists for the user
-    await redis.delete(f"todos:{user_id}:all")
-    await redis.delete(f"todos:{user_id}:completed:true")
-    await redis.delete(f"todos:{user_id}:completed:false")
+TODOS_CACHE_KEY = "todos:{user_id}:all"
+TODOS_COMPLETED_CACHE_KEY = "todos:{user_id}:completed:{completed}"
 
 
 @router.get("", response_model=List[TodoRead])
@@ -37,10 +29,14 @@ async def get_todos(
     redis: Redis = Depends(get_redis)
 ):
     try:
-        # Create a cache key that includes user_id and completed filter
-        cache_key = f"todos:{current_user.id}:all" if completed is None else f"todos:{current_user.id}:completed:{completed}"
+        cache = CacheManager(redis)
+        cache_key = (
+            TODOS_CACHE_KEY.format(user_id=current_user.id)
+            if completed is None
+            else TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=completed)
+        )
 
-        cached = await redis.get(cache_key)
+        cached = await cache.get(cache_key)
         if cached:
             return [TodoRead(**t) for t in json.loads(cached)]
 
@@ -51,9 +47,8 @@ async def get_todos(
         result = await session.execute(query)
         todos = result.scalars().all()
 
-        # 3️⃣ Serialize and store in Redis
         data = [TodoRead.model_validate(t).model_dump() for t in todos]
-        await redis.setex(cache_key, CACHE_TTL, json.dumps(data))
+        await cache.set(cache_key, json.dumps(data))
 
         return data
 
@@ -69,21 +64,19 @@ async def get_todo(
     redis: Redis = Depends(get_redis)
 ):
     try:
-        cache_key = TODO_CACHE_KEY.format(id=todo_id, user_id=current_user.id)
+        cache = CacheManager(redis)
+        cache_key = TODO_CACHE_KEY.format(id=todo_id)
 
-        # Check cache first
-        cached = await redis.get(cache_key)
+        cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
-        # Fetch from DB
         todo = await session.get(Todo, todo_id)
         if not todo or todo.owner_id != current_user.id:
             raise HTTPException(status_code=404, detail="Todo not found")
 
-        # Serialize and cache
         data = TodoRead.model_validate(todo).model_dump()
-        await redis.setex(cache_key, CACHE_TTL, json.dumps(data))
+        await cache.set(cache_key, json.dumps(data))
 
         return data
 
@@ -99,6 +92,7 @@ async def create_todo(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         todo = Todo(
             **todo_create.model_dump(exclude_unset=True),
             owner_id=current_user.id
@@ -108,10 +102,13 @@ async def create_todo(
         await session.commit()
         await session.refresh(todo)
 
-        await invalidate_todos_cache(redis, current_user.id)
+        # Invalidate relevant caches
+        await cache.invalidate(TODOS_CACHE_KEY.format(user_id=current_user.id))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=True))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=False))
 
         return TodoRead.model_validate(todo)
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -125,14 +122,13 @@ async def update_todo(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         todo = await session.get(Todo, todo_id)
         if not todo:
             raise HTTPException(status_code=404, detail="Todo not found")
-
-        # Ownership check
         if todo.owner_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to update this todo")
-        
+
         update_data = todo_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(todo, key, value)
@@ -140,8 +136,11 @@ async def update_todo(
         await session.commit()
         await session.refresh(todo)
 
-        await invalidate_todos_cache(redis, current_user.id)
-        await redis.delete(TODO_CACHE_KEY.format(id=todo_id))
+        # Invalidate caches
+        await cache.invalidate(TODOS_CACHE_KEY.format(user_id=current_user.id))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=True))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=False))
+        await cache.invalidate(TODO_CACHE_KEY.format(id=todo_id))
 
         return TodoRead.model_validate(todo)
 
@@ -157,21 +156,23 @@ async def delete_todo(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
         todo = await session.get(Todo, todo_id)
         if not todo:
             raise HTTPException(status_code=404, detail="Todo not found")
-
-        # Ownership check
         if todo.owner_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to update this todo")
-        
+            raise HTTPException(status_code=403, detail="Not authorized to delete this todo")
+
         await session.delete(todo)
         await session.commit()
 
-        await invalidate_todos_cache(redis, current_user.id)
-        await redis.delete(TODO_CACHE_KEY.format(id=todo_id))
+        # Invalidate caches
+        await cache.invalidate(TODOS_CACHE_KEY.format(user_id=current_user.id))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=True))
+        await cache.invalidate(TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=False))
+        await cache.invalidate(TODO_CACHE_KEY.format(id=todo_id))
 
         return {"success": True, "message": "Todo successfully deleted"}
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
