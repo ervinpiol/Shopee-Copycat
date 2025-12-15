@@ -9,3 +9,4 @@ pydantic-settings>=2.1.1
 python-dotenv>=1.2.1
 sqlalchemy[asyncio]>=2.0.44
 uvicorn[standard]>=0.38.0
+redis>=7.1.0

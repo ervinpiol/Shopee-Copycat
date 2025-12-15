@@ -3,12 +3,26 @@ version: "3.8"
 services:
   web:
     build: .
-    command: uvicorn app.app:app --host 0.0.0.0 --reload
     container_name: fastapi
+    command: uvicorn app.app:app --host 0.0.0.0 --reload
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     environment:
       DB_URL: postgresql+asyncpg://postgres.bzyxwswrtcdatuwyvhmv:xnctz5etAfZLujEg@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
     restart: on-failure
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

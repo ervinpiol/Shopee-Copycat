@@ -15,6 +15,16 @@ class Settings(BaseSettings):
     SUPABASE_DB_URL: str = os.getenv("SUPABASE_DB_URL", "changeths")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "changeths")
 
+    # Redis Configuration
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", 6379))
+    redis_db: int = int(os.getenv("REDIS_DB", 0))
+    redis_password: str | None = os.getenv("REDIS_PASSWORD", None)
+    redis_url: str = os.getenv(
+        "REDIS_URL", 
+        f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/{os.getenv('REDIS_DB', 0)}"
+    )
+
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
 
 
