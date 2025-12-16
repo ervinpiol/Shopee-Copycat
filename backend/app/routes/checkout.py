@@ -50,8 +50,11 @@ async def checkout(
         # Create order
         new_order = Order(
             owner_id=current_user.id,
+            owner_name=" ".join(
+                filter(None, [current_user.first_name, current_user.last_name])
+            ),
             status="pending",
-            total_price=total_price
+            total_price=total_price,
         )
         session.add(new_order)
         await session.flush()
@@ -63,8 +66,9 @@ async def checkout(
                 OrderItem(
                     order_id=new_order.id,
                     product_id=product.id,
+                    product_name=product.name,
                     quantity=item.quantity,
-                    total_price=product.price * item.quantity
+                    total_price=product.price * item.quantity,
                 )
             )
 

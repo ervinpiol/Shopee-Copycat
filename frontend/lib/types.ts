@@ -15,12 +15,15 @@ export interface OrderItems {
   product_id: number;
   quantity: number;
   total_price: number;
+  product_name: string;
 }
 
 export interface Order {
   id: number;
   owner_id: number;
+  owner_name: string;
   status: "pendng" | "null" | "string";
   total_price: number;
   items: OrderItems[];
+  order_date: string;
 }
