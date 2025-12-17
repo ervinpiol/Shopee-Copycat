@@ -28,7 +28,7 @@ async def get_orders(
     try:
         result = await session.execute(
             select(Order)
-            .options(selectinload(Order.items))  # <-- eagerly load items
+            .options(selectinload(Order.items))
             .where(Order.owner_id == current_user.id)
         )
         orders = result.scalars().all()
