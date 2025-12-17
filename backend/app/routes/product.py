@@ -51,7 +51,7 @@ async def get_products(
 async def get_product(
     product_id: int,
     session: AsyncSession = Depends(get_async_session),
-    redis=Depends(get_redis)
+    redis: Redis = Depends(get_redis)
 ):
     try:
         cache = CacheManager(redis)
@@ -78,7 +78,7 @@ async def create_product(
     product_create: ProductCreate,
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
-    redis=Depends(get_redis)
+    redis: Redis = Depends(get_redis)
 ):
     try:
         cache = CacheManager(redis)
@@ -106,7 +106,7 @@ async def update_product(
     product_update: ProductUpdate = Body(...),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
-    redis=Depends(get_redis)
+    redis: Redis = Depends(get_redis)
 ):
     try:
         cache = CacheManager(redis)
@@ -139,7 +139,7 @@ async def delete_product(
     product_id: int,
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
-    redis=Depends(get_redis)
+    redis: Redis = Depends(get_redis)
 ):
     try:
         cache = CacheManager(redis)
