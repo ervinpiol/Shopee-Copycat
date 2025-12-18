@@ -5,6 +5,7 @@ from datetime import datetime
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
+    seller_id: int 
     quantity: int
     total_price: float
     product_name: str

@@ -36,7 +36,7 @@ class ProductUpdate(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
-    owner_id: int
+    seller_id: int
 
     class Config:
         from_attributes = True

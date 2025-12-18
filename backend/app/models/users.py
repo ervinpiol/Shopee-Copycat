@@ -41,3 +41,5 @@ class User(SQLAlchemyBaseUserTable[int], Base):
         back_populates="owner",
         cascade=None
     )
+
+    sellers = relationship("Seller", back_populates="owner")

@@ -22,8 +22,8 @@ class Product(Base):
     reviews = Column(Integer, nullable=False, default=0)
     category = Column(SqlEnum(CategoryEnum, name="category_enum"), nullable=True)
 
-    owner_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    owner = relationship("User", back_populates="products")
+    seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=False)
+    seller = relationship("Seller", back_populates="products")
 
     # ✅ Correct relationship
     order_items = relationship(

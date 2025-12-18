@@ -19,6 +19,7 @@ class OrderItem(Base):
     __tablename__ = "order_item"
     id = Column(Integer, primary_key=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("product.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     total_price = Column(Float, nullable=False)
@@ -26,3 +27,5 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
+    seller = relationship("Seller")
+
