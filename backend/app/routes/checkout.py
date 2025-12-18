@@ -15,7 +15,7 @@ PRODUCTS_CACHE_KEY = "products:all"
 PRODUCT_CACHE_KEY = "products:{id}"
 CARTS_CACHE_KEY = "carts:{user_id}"
 
-router = APIRouter(prefix="/checkout", tags=["Checkout"])
+router = APIRouter(prefix="/checkout", tags=["checkout"])
 
 
 @router.post("")

@@ -15,7 +15,7 @@ import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-router = APIRouter(prefix="/cart/items", tags=["Cart"])
+router = APIRouter(prefix="/cart/items", tags=["cart"])
 
 CARTS_CACHE_KEY = "carts:{user_id}" 
 

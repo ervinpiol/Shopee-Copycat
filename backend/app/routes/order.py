@@ -14,7 +14,7 @@ import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-router = APIRouter(prefix="/order", tags=["Order"])
+router = APIRouter(prefix="/order", tags=["order"])
 
 # Cache keys
 ORDERS_CACHE_KEY = "orders:all"
@@ -23,16 +23,30 @@ ORDER_CACHE_KEY = "orders:{id}"
 @router.get("", response_model=List[OrderRead])
 async def get_orders(
     current_user: User = Depends(fastapi_users.current_user()),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    redis=Depends(get_redis)
 ):
     try:
+        cache = CacheManager(redis)
+        cached = await cache.get(ORDERS_CACHE_KEY)
+        if cached:
+            return json.loads(cached)
+
         result = await session.execute(
             select(Order)
             .options(selectinload(Order.items))
             .where(Order.owner_id == current_user.id)
         )
-        orders = result.scalars().all()
-        return orders
+
+        products = result.scalars().all()
+        data = [
+            OrderRead.model_validate(p).model_dump(mode="json")
+            for p in products
+        ]
+
+        await cache.set(ORDERS_CACHE_KEY, json.dumps(data))
+
+        return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

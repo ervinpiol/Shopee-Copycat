@@ -17,7 +17,7 @@ from app.core.cache import CacheManager
 
 from app.core.upload import upload_to_supabase
 
-router = APIRouter(prefix="/product", tags=["Product"])
+router = APIRouter(prefix="/product", tags=["product"])
 
 # Cache keys
 PRODUCTS_CACHE_KEY = "products:all"
