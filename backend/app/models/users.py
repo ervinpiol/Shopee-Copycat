@@ -15,31 +15,14 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    role = Column(
-        SQLEnum(UserRole),
-        nullable=False,
-        default=UserRole.customer
-    )
+    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.customer)
 
-    # Todos owned by user
-    todos = relationship(
-        "Todo",
+    todos = relationship("Todo", back_populates="owner", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="owner")
+
+    # ✅ ONE-TO-ONE
+    seller = relationship(
+        "Seller",
         back_populates="owner",
-        cascade="all, delete-orphan"
+        uselist=False
     )
-
-    # Products owned by user
-    products = relationship(
-        "Product",
-        back_populates="owner",
-        cascade="all, delete-orphan"
-    )
-
-    # Orders (historical)
-    orders = relationship(
-        "Order",
-        back_populates="owner",
-        cascade=None
-    )
-
-    sellers = relationship("Seller", back_populates="owner")
