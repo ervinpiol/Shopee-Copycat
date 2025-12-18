@@ -11,6 +11,7 @@ from app.routes.users import auth_backend, fastapi_users
 from app.schemas.users import UserRead, UserCreate, UserUpdate
 
 # Routers
+from app.routes.admin_users import router as admin_users_router
 from app.routes.todo import router as todo_router
 from app.routes.product import router as product_router
 from app.routes.cart import router as cart_router
@@ -86,6 +87,7 @@ app.include_router(
 # ----------------------------
 # Other Routers
 # ----------------------------
+app.include_router(admin_users_router)
 app.include_router(todo_router)
 app.include_router(product_router)
 app.include_router(cart_router)
