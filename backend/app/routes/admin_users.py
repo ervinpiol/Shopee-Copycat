@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.db import get_async_session
 from app.models.users import User, UserRole
 from app.schemas.users import UserRead
-from app.routes.dependencies import admin_required
+from app.core.dependencies import admin_required
 
 import json
 from app.core.redis import get_redis
