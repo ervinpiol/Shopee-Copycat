@@ -12,7 +12,7 @@ import { useState } from "react";
 
 export function Header() {
   const { itemCount } = useCart();
-  const { user } = useAuth(); // 👈 get logged-in user
+  const { user } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       {loading && <Spinner />}
-      <div className="container mx-auto px-4 flex items-center justify-between gap-4 h-16">
+      <div className="container mx-aut flex items-center justify-between gap-4 h-16">
         <div className="flex items-center gap-10">
           <Link href="/products" className={getLinkClasses("/products")}>
             Shop
@@ -62,6 +62,10 @@ export function Header() {
 
           <Link href="/todo" className={getLinkClasses("/todo")}>
             Todo App
+          </Link>
+
+          <Link href="/admin" className={getLinkClasses("/admin")}>
+            Admin Panel
           </Link>
         </div>
 
