@@ -1,13 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Header } from "@/components/header";
-import Main from "./Main";
-
-export default function AdminPage() {
-  return (
-    <div className="w-full">
-      <Header />
-      <Main />
-    </div>
-  );
+export default function Page() {
+  redirect("/admin/dashboard");
 }
