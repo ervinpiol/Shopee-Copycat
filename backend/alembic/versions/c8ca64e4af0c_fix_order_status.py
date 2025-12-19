@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from app.models.order import OrderStatus
+from app.models.user_order import OrderStatus
 
 
 # revision identifiers, used by Alembic.

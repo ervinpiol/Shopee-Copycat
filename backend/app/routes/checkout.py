@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_async_session
 from app.models.users import User
-from app.models.order import Order, OrderItem
+from app.models.user_order import Order, OrderItem
 from app.routes.users import fastapi_users
 from app.models.cart import CartItem
 

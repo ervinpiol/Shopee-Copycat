@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db import get_async_session
-from app.models.order import Order
-from app.schemas.order import OrderRead, OrderUpdate
+from app.models.user_order import Order
+from app.schemas.user_order import OrderRead, OrderUpdate
 from app.routes.users import fastapi_users
 from app.models.users import User
 from typing import List
