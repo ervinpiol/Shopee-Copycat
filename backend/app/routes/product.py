@@ -9,6 +9,7 @@ from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.routes.users import fastapi_users
 from app.models.users import User
 from typing import List
+from fastapi.encoders import jsonable_encoder
 
 from redis.asyncio import Redis
 import json
@@ -37,11 +38,11 @@ async def get_products(
 
         result = await session.execute(select(Product))
         products = result.scalars().all()
-        data = [ProductRead.model_validate(p).model_dump() for p in products]
+        data = [ProductRead.model_validate(p) for p in products]
+        encoded = jsonable_encoder(data)
 
-        await cache.set(PRODUCTS_CACHE_KEY, json.dumps(data))
-
-        return data
+        await cache.set(PRODUCTS_CACHE_KEY, json.dumps(encoded))
+        return encoded
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,10 +65,11 @@ async def get_product(
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        data = ProductRead.model_validate(product).model_dump()
-        await cache.set(cache_key, json.dumps(data))
+        data = ProductRead.model_validate(product)
+        encoded = jsonable_encoder(data)
 
-        return data
+        await cache.set(cache_key, json.dumps(encoded))
+        return encoded
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
