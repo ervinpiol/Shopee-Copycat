@@ -29,6 +29,7 @@ interface CartContextType {
   subtotal: number;
   isFetching: boolean;
   isProcessing: boolean;
+  hasFetched: boolean;
   refreshCart: () => void;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
   updateQuantity: (
@@ -46,6 +47,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchCartItems = async () => {
@@ -56,11 +58,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const { data } = await axios.get("http://localhost:8000/cart/items", {
         withCredentials: true,
       });
-      setCartItems(data);
+      setCartItems(data ?? []);
     } catch (err) {
       console.error("Failed to fetch cart items", err);
+      setCartItems([]);
     } finally {
       setIsFetching(false);
+      setHasFetched(true);
     }
   };
 
@@ -84,15 +88,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
-
         const { data } = await axios.put(
           `http://localhost:8000/cart/items/${existingItem.id}`,
           { product_id: productId, quantity: newQuantity },
           { withCredentials: true }
         );
-
         setCartItems((prev) =>
-          prev.map((item) =>
+          (prev ?? []).map((item) =>
             item.id === data.id ? { ...item, quantity: data.quantity } : item
           )
         );
@@ -102,8 +104,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           { product_id: productId, quantity },
           { withCredentials: true }
         );
-
-        setCartItems((prev) => [...prev, data]);
+        setCartItems((prev) => [...(prev ?? []), data]);
       }
     } catch (err: any) {
       console.error("Failed to add item", err);
@@ -128,7 +129,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         { withCredentials: true }
       );
       setCartItems((prev) =>
-        prev.map((item) =>
+        (prev ?? []).map((item) =>
           item.id === data.id ? { ...item, quantity: data.quantity } : item
         )
       );
@@ -149,7 +150,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         data: { product_id: productId },
         withCredentials: true,
       });
-      setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
+      setCartItems((prev) =>
+        (prev ?? []).filter((item) => item.id !== cartItemId)
+      );
     } catch (err: any) {
       console.error("Failed to remove item", err);
       alert(err.response?.data?.detail || err.message);
@@ -176,6 +179,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         subtotal,
         isFetching,
         isProcessing,
+        hasFetched,
         refreshCart: fetchCartItems,
         addToCart,
         updateQuantity,

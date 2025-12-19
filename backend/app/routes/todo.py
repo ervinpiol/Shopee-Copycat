@@ -14,7 +14,7 @@ from app.core.redis import get_redis
 from app.core.cache import CacheManager
 import json
 
-router = APIRouter(prefix="/todo", tags=["Todo"])
+router = APIRouter(prefix="/todo", tags=["todo"])
 
 TODO_CACHE_KEY = "todos:{id}"
 TODOS_CACHE_KEY = "todos:{user_id}:all"

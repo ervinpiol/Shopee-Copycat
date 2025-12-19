@@ -14,8 +14,9 @@ from app.core.cache import CacheManager
 PRODUCTS_CACHE_KEY = "products:all"
 PRODUCT_CACHE_KEY = "products:{id}"
 CARTS_CACHE_KEY = "carts:{user_id}"
+ORDERS_CACHE_KEY = "orders:all"
 
-router = APIRouter(prefix="/checkout", tags=["Checkout"])
+router = APIRouter(prefix="/checkout", tags=["checkout"])
 
 
 @router.post("")
@@ -69,6 +70,8 @@ async def checkout(
                     product_name=product.name,
                     quantity=item.quantity,
                     total_price=product.price * item.quantity,
+                    seller_id=product.seller_id,
+                    image=product.image
                 )
             )
 
@@ -91,8 +94,8 @@ async def checkout(
             await cache.invalidate(PRODUCTS_CACHE_KEY)
             await cache.invalidate(PRODUCT_CACHE_KEY.format(id=product_id))
 
-        # Invalidate product list cache
-        # await invalidate_products_list_cache(redis)
+        # Invalidate order cache
+        await cache.invalidate(ORDERS_CACHE_KEY)
 
         return {"success": True, "message": "Checkout successful!"}
     

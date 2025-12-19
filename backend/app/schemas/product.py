@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
+from datetime import datetime
 
 CategoryLiteral = Literal["Electronics", "Accessories", "Storage"]
+StatusLiteral = Literal["in_stock", "low_stock", "out_of_stock"]
 
 class ProductBase(BaseModel):
     """
@@ -16,6 +18,7 @@ class ProductBase(BaseModel):
     rating: Optional[float] = Field(0.0, ge=0, le=5, example=4.5)
     reviews: Optional[int] = Field(0, ge=0, example=123)
     category: Optional[CategoryLiteral] = Field(None, example="Accessories")
+    status: Optional[StatusLiteral] = Field(None, example="out_of_stock")
 
 
 class ProductCreate(ProductBase):
@@ -36,7 +39,9 @@ class ProductUpdate(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
-    owner_id: int
+    seller_id: int
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

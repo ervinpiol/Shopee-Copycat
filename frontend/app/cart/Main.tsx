@@ -21,6 +21,7 @@ export default function Main() {
     clearCart,
     isFetching,
     isProcessing,
+    hasFetched,
   } = useCart();
   const shipping = subtotal > 100 ? 0 : 10;
   const total = subtotal + shipping;
@@ -43,7 +44,7 @@ export default function Main() {
     }
   };
 
-  if (isFetching) return <Loading />;
+  if (isFetching && !hasFetched) return <Loading />;
 
   if (!cartItems.length) {
     return (

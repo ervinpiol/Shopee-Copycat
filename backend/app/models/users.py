@@ -1,7 +1,13 @@
-from sqlalchemy import Integer, Column, String, Boolean
+from sqlalchemy import Integer, Column, String, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from fastapi_users.db import SQLAlchemyBaseUserTable
 from app.db import Base
+from enum import Enum
+
+class UserRole(str, Enum):
+    customer = "customer"
+    seller = "seller"
+    admin = "admin"
 
 class User(SQLAlchemyBaseUserTable[int], Base):
     __tablename__ = "user"
@@ -9,25 +15,14 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    is_seller = Column(Boolean, default=False)
+    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.customer)
 
-    # Todos owned by user
-    todos = relationship(
-        "Todo",
-        back_populates="owner",
-        cascade="all, delete-orphan"
-    )
+    todos = relationship("Todo", back_populates="owner", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="owner")
 
-    # Products owned by user
-    products = relationship(
-        "Product",
+    # ✅ ONE-TO-ONE
+    seller = relationship(
+        "Seller",
         back_populates="owner",
-        cascade="all, delete-orphan"
-    )
-
-    # Orders (historical)
-    orders = relationship(
-        "Order",
-        back_populates="owner",
-        cascade=None
+        uselist=False
     )
