@@ -12,6 +12,7 @@ class OrderItemRead(BaseModel):
     quantity: int
     total_price: float
     product_name: str
+    image: Optional[str] = None
     status: OrderStatusLiteral
 
     class Config:

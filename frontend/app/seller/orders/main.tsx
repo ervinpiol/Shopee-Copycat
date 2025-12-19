@@ -29,6 +29,7 @@ interface OrderItem {
   total_price: number;
   product_name: string;
   status: string;
+  image: string;
 }
 
 interface Order {
@@ -232,6 +233,29 @@ export default function Main() {
                             key={item.id}
                             className="flex flex-col gap-3 rounded-lg border bg-background p-4 sm:flex-row sm:items-center sm:justify-between"
                           >
+                            <div className="relative w-24 h-24 shrink-0 bg-muted rounded-lg overflow-hidden">
+                              {item.image ? (
+                                <img
+                                  src={item.image}
+                                  alt={item.product_name}
+                                  className="object-cover w-full h-full rounded-sm"
+                                  onError={(e) => {
+                                    const fallback =
+                                      document.createElement("span");
+                                    fallback.textContent = item.product_name
+                                      .charAt(0)
+                                      .toUpperCase();
+                                    fallback.className =
+                                      "text-sm bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-10 h-10";
+                                    e.currentTarget.replaceWith(fallback);
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-lg bg-black uppercase font-bold flex items-center justify-center rounded-sm text-white w-full h-full">
+                                  {item.product_name.charAt(0)}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex-1 space-y-1">
                               <div className="font-medium">
                                 {item.product_name}

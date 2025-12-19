@@ -42,6 +42,7 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     total_price = Column(Float, nullable=False)
     product_name = Column(String, nullable=False)
+    image = Column(String, nullable=True)
     status = Column(
         SqlEnum(
             OrderStatus,

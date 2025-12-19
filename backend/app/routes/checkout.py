@@ -70,7 +70,8 @@ async def checkout(
                     product_name=product.name,
                     quantity=item.quantity,
                     total_price=product.price * item.quantity,
-                    seller_id=product.seller_id
+                    seller_id=product.seller_id,
+                    image=product.image
                 )
             )
 
