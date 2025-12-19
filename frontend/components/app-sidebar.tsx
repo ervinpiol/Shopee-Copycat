@@ -22,25 +22,46 @@ import {
   Settings,
 } from "lucide-react";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<any>;
+}
+
+const adminNavItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
-export function AppSidebar() {
+const sellerNavItems: NavItem[] = [
+  { href: "/seller/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/seller/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/seller/products", label: "Products", icon: Package },
+  { href: "/seller/analytics", label: "Analytics", icon: BarChart3 },
+];
+
+interface AppSidebarProps {
+  role: "admin" | "seller";
+}
+
+export function AppSidebar({ role }: AppSidebarProps) {
   const pathname = usePathname();
+  const navItems = role === "admin" ? adminNavItems : sellerNavItems;
 
   return (
     <Sidebar side="left" variant="sidebar">
       <SidebarHeader className="border-b px-6 py-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary" />
-          <span className="text-lg font-semibold">Shop Admin</span>
+          <Link href="/">
+            <div className="h-8 w-8 rounded-lg bg-primary" />
+          </Link>
+          <span className="text-lg font-semibold">
+            {role === "admin" ? "Admin Panel" : "Seller Panel"}
+          </span>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -66,11 +87,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter className="border-t">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
-              <Link href="/settings">
+              <Link href={`/${role}/settings`}>
                 <Settings />
                 <span>Settings</span>
               </Link>

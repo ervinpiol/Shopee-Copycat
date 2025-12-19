@@ -14,7 +14,7 @@ export default function RootLayout({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full">
-        <AppSidebar role="admin" />
+        <AppSidebar role="seller" />
         <SidebarInset className="flex-1">
           {/* <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger />

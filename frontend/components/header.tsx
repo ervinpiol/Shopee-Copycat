@@ -64,6 +64,10 @@ export function Header() {
             Todo App
           </Link>
 
+          <Link href="/seller" className={getLinkClasses("/seller")}>
+            Seller Admin Panel
+          </Link>
+
           <Link href="/admin" className={getLinkClasses("/admin")}>
             Admin Panel
           </Link>
