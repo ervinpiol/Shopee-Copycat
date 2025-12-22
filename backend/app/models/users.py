@@ -26,3 +26,5 @@ class User(SQLAlchemyBaseUserTable[int], Base):
         back_populates="owner",
         uselist=False
     )
+
+    seller_orders = relationship("SellerOrder", back_populates="owner")

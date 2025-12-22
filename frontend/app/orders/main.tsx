@@ -38,6 +38,7 @@ interface Order {
   owner_name: string;
   status: string;
   total_price: number;
+  items: OrderItem[];
   created_at: string;
   updated_at: string;
 }
@@ -61,12 +62,9 @@ export default function Main() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.get<Order[]>(
-        "http://localhost:8000/seller/order",
-        {
-          withCredentials: true,
-        }
-      );
+      const { data } = await axios.get<Order[]>("http://localhost:8000/order", {
+        withCredentials: true,
+      });
       setOrders(data);
     } catch (err: any) {
       console.error("Failed to fetch orders", err);
@@ -109,7 +107,15 @@ export default function Main() {
     );
 
   return (
-    <div>
+    <div className="px-4 py-8">
+      <div className="pb-8">
+        <h1 className="mb-2 text-4xl font-bold tracking-tight">
+          Orders Management
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Track and manage all shop orders
+        </p>
+      </div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -192,10 +198,10 @@ export default function Main() {
                       <div className="text-3xl font-bold">
                         ${order.total_price.toFixed(2)}
                       </div>
-                      {/* <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground">
                         {order.items.length}{" "}
                         {order.items.length === 1 ? "item" : "items"}
-                      </div> */}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -230,7 +236,7 @@ export default function Main() {
                     <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                       <h4 className="font-semibold">Order Items</h4>
                       <div className="space-y-3">
-                        {/* {order.items.map((item) => (
+                        {order.items.map((item) => (
                           <div
                             key={item.id}
                             className="flex flex-col gap-3 rounded-lg border bg-background p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -285,7 +291,7 @@ export default function Main() {
                               </Badge>
                             </div>
                           </div>
-                        ))} */}
+                        ))}
                       </div>
                     </div>
                   )}
