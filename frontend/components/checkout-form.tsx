@@ -1,277 +1,239 @@
 "use client";
 
-import type React from "react";
-
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CreditCard, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCart } from "@/context/CartContext";
+import { toast } from "sonner";
 
-export function CheckoutForm() {
+interface User {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
+interface Address {
+  id: number;
+  label: string;
+  recipient_name: string;
+  phone: number;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  province: string;
+  postal_code: number;
+  country: string;
+  is_default: boolean;
+}
+
+export default function CheckoutForm() {
+  const { cartItems, subtotal, clearCart, isFetching, hasFetched } = useCart();
+
+  const [user, setUser] = useState<User | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null
+  );
   const [paymentMethod, setPaymentMethod] = useState("card");
+  const [loading, setLoading] = useState(true);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle checkout
-    console.log("Processing checkout...");
+  const shippingFee = subtotal > 100 ? 0 : 10;
+  const total = subtotal + shippingFee;
+
+  useEffect(() => {
+    const fetchCheckoutData = async () => {
+      try {
+        const [userRes, addressRes] = await Promise.all([
+          axios.get("http://localhost:8000/users/me", {
+            withCredentials: true,
+          }),
+          axios.get("http://localhost:8000/users/me/addresses", {
+            withCredentials: true,
+          }),
+        ]);
+
+        setUser(userRes.data);
+        setAddresses(addressRes.data);
+
+        const defaultAddress = addressRes.data.find(
+          (a: Address) => a.is_default
+        );
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCheckoutData();
+  }, []);
+
+  const handleCheckout = async () => {
+    if (!selectedAddressId || !cartItems.length) return;
+
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        "http://localhost:8000/checkout",
+        {}, // empty body, backend uses current_user
+        { withCredentials: true }
+      );
+      clearCart();
+
+      toast.success("Checkout successful!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Checkout failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  if (loading || (isFetching && !hasFetched)) {
+    return <p className="text-center py-12">Loading checkout…</p>;
+  }
+
+  if (!cartItems.length) {
+    return <p className="text-center py-12">Your cart is empty</p>;
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Step 1: Contact Information */}
-      <Card className="border-2 pt-0 overflow-hidden">
-        <CardHeader className="bg-black py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center rounded-sm bg-foreground text-background font-bold">
-              1.
+    <div className="mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* LEFT */}
+      <div className="lg:col-span-2 space-y-6">
+        {/* Contact Info */}
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>1. Contact Information</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <div>
+              <p className="text-muted-foreground">Name</p>
+              <p className="font-medium">
+                {user?.first_name} {user?.last_name || ""}
+              </p>
             </div>
-            <CardTitle className="text-background">
-              Contact Information
-            </CardTitle>
-          </div>
-          <CardDescription className="text-background/80">
-            We&apos;ll use this to send you order updates
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="firstName"
-                  className="uppercase text-xs font-bold tracking-wider"
-                >
-                  First Name
-                </Label>
-                <Input
-                  id="firstName"
-                  placeholder="Jane"
-                  className="border-2"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="lastName"
-                  className="uppercase text-xs font-bold tracking-wider"
-                >
-                  Last Name
-                </Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  className="border-2"
-                  required
-                />
-              </div>
+            <div>
+              <p className="text-muted-foreground">Email</p>
+              <p className="font-medium">{user?.email}</p>
             </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className="uppercase text-xs font-bold tracking-wider"
-              >
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="jane.doe@example.com"
-                className="border-2"
-                required
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Step 2: Shipping Address */}
-      <Card className="border-2 pt-0 overflow-hidden">
-        <CardHeader className="bg-black py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center rounded-sm bg-foreground text-background font-bold">
-              2.
-            </div>
-            <CardTitle className="text-background">Shipping Address</CardTitle>
-          </div>
-          <CardDescription className="text-background/80">
-            Where should we deliver your order?
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label
-                htmlFor="address"
-                className="uppercase text-xs font-bold tracking-wider"
+        {/* Shipping Address */}
+        <Card className="border-2">
+          <CardHeader className="flex flex-row justify-between">
+            <CardTitle>2. Shipping Address</CardTitle>
+            <Button size="sm" variant="outline">
+              Add Address
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {addresses.map((address) => (
+              <div
+                key={address.id}
+                onClick={() => setSelectedAddressId(address.id)}
+                className={cn(
+                  "border-2 rounded-sm p-4 cursor-pointer transition",
+                  selectedAddressId === address.id
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/50"
+                )}
               >
-                Street Address
-              </Label>
-              <Input
-                id="address"
-                placeholder="123 Main Street"
-                className="border-2"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="apartment"
-                className="uppercase text-xs font-bold tracking-wider"
-              >
-                Apartment, Suite, etc. (Optional)
-              </Label>
-              <Input id="apartment" placeholder="Apt 4B" className="border-2" />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="city"
-                  className="uppercase text-xs font-bold tracking-wider"
-                >
-                  City
-                </Label>
-                <Input
-                  id="city"
-                  placeholder="New York"
-                  className="border-2"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="state"
-                  className="uppercase text-xs font-bold tracking-wider"
-                >
-                  Province
-                </Label>
-                <Input
-                  id="province"
-                  placeholder="NY"
-                  className="border-2"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="zipCode"
-                  className="uppercase text-xs font-bold tracking-wider"
-                >
-                  Zip Code
-                </Label>
-                <Input
-                  id="zipCode"
-                  placeholder="10001"
-                  className="border-2"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                <p className="font-semibold">
+                  {address.label} — {address.recipient_name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {address.address_line1}
+                  {address.address_line2 ? `, ${address.address_line2}` : ""}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {address.city}, {address.province} {address.postal_code}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  📞 {address.phone}
+                </p>
 
-      {/* Step 3: Payment Method */}
-      <Card className="border-2 pt-0 overflow-hidden">
-        <CardHeader className="bg-black py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center rounded-sm bg-foreground text-background font-bold">
-              3.
-            </div>
-            <CardTitle className="text-background">Payment Method</CardTitle>
-          </div>
-          <CardDescription className="text-background/80">
-            All transactions are secure and encrypted
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-              <div className="flex items-center space-x-3 rounded-sm border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                <RadioGroupItem value="card" id="card" />
-                <Label
-                  htmlFor="card"
-                  className="flex flex-1 items-center gap-2 cursor-pointer"
-                >
-                  <CreditCard className="h-5 w-5" />
-                  <span className="font-semibold">Credit / Debit Card</span>
-                </Label>
+                {address.is_default && (
+                  <span className="text-xs font-bold text-primary">
+                    DEFAULT
+                  </span>
+                )}
               </div>
-              <div className="flex items-center space-x-3 rounded-sm border-2 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                <RadioGroupItem value="wallet" id="wallet" />
-                <Label
-                  htmlFor="wallet"
-                  className="flex flex-1 items-center gap-2 cursor-pointer"
-                >
-                  <Wallet className="h-5 w-5" />
-                  <span className="font-semibold">Digital Wallet</span>
-                </Label>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Payment */}
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>3. Payment Method</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={setPaymentMethod}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-3 border-2 p-4 rounded-sm">
+                <RadioGroupItem value="card" />
+                <CreditCard className="h-5 w-5" /> Card
+              </div>
+              <div className="flex items-center gap-3 border-2 p-4 rounded-sm">
+                <RadioGroupItem value="wallet" />
+                <Wallet className="h-5 w-5" /> Wallet
               </div>
             </RadioGroup>
+          </CardContent>
+        </Card>
+      </div>
 
-            {paymentMethod === "card" && (
-              <div className="space-y-4 pt-4 border-t-2">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="cardNumber"
-                    className="uppercase text-xs font-bold tracking-wider"
-                  >
-                    Card Number
-                  </Label>
-                  <Input
-                    id="cardNumber"
-                    placeholder="1234 5678 9012 3456"
-                    className="border-2"
-                    required
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="expiry"
-                      className="uppercase text-xs font-bold tracking-wider"
-                    >
-                      Expiry Date
-                    </Label>
-                    <Input
-                      id="expiry"
-                      placeholder="MM/YY"
-                      className="border-2"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="cvv"
-                      className="uppercase text-xs font-bold tracking-wider"
-                    >
-                      CVV
-                    </Label>
-                    <Input
-                      id="cvv"
-                      placeholder="123"
-                      className="border-2"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* RIGHT — ORDER SUMMARY */}
+      <Card className="border-2 h-fit sticky top-4">
+        <CardHeader>
+          <CardTitle>Order Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {cartItems.map((item) => (
+            <div key={item.id} className="flex justify-between">
+              <span>
+                {item.product.name} × {item.quantity}
+              </span>
+              <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+            </div>
+          ))}
+
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Shipping</span>
+              <span>{shippingFee === 0 ? "FREE" : `$${shippingFee}`}</span>
+            </div>
+            <div className="flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
           </div>
+
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!selectedAddressId}
+            onClick={handleCheckout}
+          >
+            Place Order
+          </Button>
         </CardContent>
       </Card>
-
-      <Button type="submit" className="w-full">
-        Complete Purchase
-      </Button>
-    </form>
+    </div>
   );
 }
