@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_async_session
@@ -23,19 +24,27 @@ router = APIRouter(prefix="/checkout", tags=["checkout"])
 
 @router.post("")
 async def checkout(
+    cart_item_ids: List[int] = Body(..., embed=True),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
     redis: Redis = Depends(get_redis)
 ):
     try:
         cache = CacheManager(redis)
+
+        if not cart_item_ids:
+            raise HTTPException(status_code=400, detail="No cart items provided")
+
         result = await session.execute(
-            select(CartItem).where(CartItem.owner_id == current_user.id)
+            select(CartItem).where(
+                CartItem.owner_id == current_user.id,
+                CartItem.id.in_(cart_item_ids)
+            )
         )
         cart_items = result.scalars().all()
 
         if not cart_items:
-            raise HTTPException(status_code=400, detail="Cart is empty")
+            raise HTTPException(status_code=400, detail="No valid cart items found")
 
         total_price = 0
         product_ids: set[int] = set()

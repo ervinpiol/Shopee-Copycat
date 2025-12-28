@@ -1,11 +1,9 @@
-"use client";
-
 import { Header } from "@/components/header";
 import Main from "./main";
 
-export default function Cart() {
+export default function CheckoutPage() {
   return (
-    <div className="w-full">
+    <div className="min-h-screen">
       <Header />
       <Main />
     </div>

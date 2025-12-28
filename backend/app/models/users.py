@@ -28,3 +28,9 @@ class User(SQLAlchemyBaseUserTable[int], Base):
     )
 
     seller_orders = relationship("SellerOrder", back_populates="owner")
+    addresses = relationship(
+        "UserAddress",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+

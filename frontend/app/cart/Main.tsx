@@ -1,47 +1,38 @@
 "use client";
 
-import axios from "axios";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { useState } from "react";
-import { Spinner } from "@/components/spinner";
 import { Loading } from "@/components/loading";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useRouter } from "next/navigation";
 
 export default function Main() {
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const {
     cartItems,
     updateQuantity,
     removeItem,
     subtotal,
-    clearCart,
     isFetching,
-    isProcessing,
     hasFetched,
   } = useCart();
   const shipping = subtotal > 100 ? 0 : 10;
   const total = subtotal + shipping;
 
-  const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        "http://localhost:8000/checkout",
-        {}, // empty body, backend uses current_user
-        { withCredentials: true }
-      );
-      clearCart();
-
-      toast.success("Checkout successful!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Checkout failed");
-    } finally {
-      setLoading(false);
-    }
+  const handleCheckout = () => {
+    // Store cart data in sessionStorage before navigating
+    const checkoutData = {
+      cartItems,
+      subtotal,
+      shipping,
+      total,
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem("checkout_data", JSON.stringify(checkoutData));
+    router.push("/checkout");
   };
 
   if (isFetching && !hasFetched) return <Loading />;
@@ -64,32 +55,32 @@ export default function Main() {
   }
 
   return (
-    <>
-      {(loading || isProcessing) && <Spinner />}
-      <div className="px-4 py-8">
-        <h1 className="text-3xl font-bold text-foreground mb-6">
-          Shopping Cart
-        </h1>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {cartItems.map((item, index) => (
-              <Card key={`${item.id}-${index}`} className="p-4 flex gap-4">
+    <div className="py-8">
+      <h1 className="text-3xl font-bold text-foreground mb-6">Shopping Cart</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          {cartItems.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="flex gap-4">
+                <Checkbox />
+
                 <div className="relative w-24 h-24 shrink-0 bg-muted rounded-lg overflow-hidden">
                   <img
                     src={item.product.image}
                     alt={item.product.name}
                     className="object-cover w-full h-full"
                     onError={(e) => {
-                      e.currentTarget.style.display = "none"; // hide broken img
+                      e.currentTarget.style.display = "none";
                       e.currentTarget.insertAdjacentHTML(
                         "afterend",
                         `<span class="text-2xl bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-full h-full">
-                                        ${item.product.name.charAt(0)}
-                                      </span>`
+                          ${item.product.name.charAt(0)}
+                        </span>`
                       );
                     }}
                   />
                 </div>
+
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="font-semibold text-foreground mb-1">
@@ -99,6 +90,7 @@ export default function Main() {
                       ${item.product.price.toFixed(2)}
                     </p>
                   </div>
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center border border-border rounded-lg">
                       <Button
@@ -133,12 +125,10 @@ export default function Main() {
                       </Button>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Subtotal</p>
-                      <p className="font-bold text-foreground">
-                        ${(item.product.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
+                    <p className="font-bold text-foreground">
+                      ${(item.product.price * item.quantity).toFixed(2)}
+                    </p>
+
                     <Button
                       variant="destructive"
                       onClick={() => removeItem(item.id, item.product.id)}
@@ -147,53 +137,51 @@ export default function Main() {
                     </Button>
                   </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
-              <CardContent>
-                <h2 className="text-xl font-bold text-foreground mb-4">
-                  Order Summary
-                </h2>
-                <div className="space-y-3 mb-4 text-sm">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal ({cartItems.length} items)</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span
-                      className={
-                        shipping === 0 ? "text-primary font-medium" : ""
-                      }
-                    >
-                      {shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}
-                    </span>
-                  </div>
-                </div>
-                <div className="border-t border-border pt-3 mb-6">
-                  <div className="flex justify-between font-bold text-foreground">
-                    <span>Total</span>
-                    <span className="text-xl">${total.toFixed(2)}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Button className="w-full" size="lg" onClick={handleCheckout}>
-                    Proceed to Checkout
-                  </Button>
-                  <Link href="/products" className="block">
-                    <Button variant="outline" className="w-full bg-transparent">
-                      Continue Shopping
-                    </Button>
-                  </Link>
-                </div>
               </CardContent>
             </Card>
-          </div>
+          ))}
+        </div>
+
+        <div className="lg:col-span-1">
+          <Card className="sticky top-4">
+            <CardContent>
+              <h2 className="text-xl font-bold text-foreground mb-4">
+                Order Summary
+              </h2>
+              <div className="space-y-3 mb-4 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal ({cartItems.length} items)</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Shipping</span>
+                  <span
+                    className={shipping === 0 ? "text-primary font-medium" : ""}
+                  >
+                    {shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}
+                  </span>
+                </div>
+              </div>
+              <div className="border-t border-border pt-3 mb-6">
+                <div className="flex justify-between font-bold text-foreground">
+                  <span>Total</span>
+                  <span className="text-xl">${total.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Button className="w-full" size="lg" onClick={handleCheckout}>
+                  Proceed to Checkout
+                </Button>
+                <Link href="/products" className="block">
+                  <Button variant="outline" className="w-full bg-transparent">
+                    Continue Shopping
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 }
