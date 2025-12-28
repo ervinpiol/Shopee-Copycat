@@ -1,7 +1,9 @@
 # models/seller.py
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func, Enum as SqlEnum, Float
 from sqlalchemy.orm import relationship
-from app.db import Base  # Your declarative base
+from app.db import Base
+from enum import Enum
+
 
 class Seller(Base):
     __tablename__ = "sellers"
@@ -17,7 +19,16 @@ class Seller(Base):
 
     store_name = Column(String, nullable=False, unique=True)
     store_description = Column(String)
+    phone = Column(Integer, nullable=False)
+
+    address_line1 = Column(String, nullable=False)
+    address_line2 = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    province = Column(String, nullable=False)
+    postal_code = Column(Integer, nullable=False)
+    country = Column(String, default="PH")
     store_category = Column(String, nullable=False)
+
     is_active = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -29,3 +40,35 @@ class Seller(Base):
     products = relationship("Product", back_populates="seller")
 
     order_items = relationship("OrderItem", back_populates="seller")
+
+
+## SELLER ORDER
+
+class SellerOrderStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+class SellerOrder(Base):
+    __tablename__ = "seller_orders"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    owner_name = Column(String, nullable=False)
+    total_price = Column(Float, nullable=False, default=0.0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(
+        SqlEnum(
+            SellerOrderStatus,
+            name="seller_order_status_enum",
+            values_callable=lambda x: [e.value for e in x],  # store lowercase
+        ),
+        nullable=False,
+        default=SellerOrderStatus.PENDING,
+        server_default=SellerOrderStatus.PENDING.value,
+    )
+
+    owner = relationship("User", back_populates="seller_orders")
+

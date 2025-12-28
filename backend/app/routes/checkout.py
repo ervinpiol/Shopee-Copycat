@@ -7,7 +7,7 @@ from app.models.users import User
 from app.models.user_order import Order, OrderItem
 from app.routes.users import fastapi_users
 from app.models.cart import CartItem
-from app.models.seller_order import SellerOrder
+from app.models.seller import SellerOrder
 
 from redis.asyncio import Redis
 from app.core.redis import get_redis

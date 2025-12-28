@@ -19,7 +19,7 @@ from fastapi.encoders import jsonable_encoder
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-router = APIRouter(prefix="/users/me/addresses", tags=["user_address"])
+router = APIRouter(prefix="/users/me/addresses", tags=["users"])
 
 # Cache keys
 ADDRESS_CACHE_KEY = "address:{id}"
