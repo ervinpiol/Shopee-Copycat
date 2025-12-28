@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CreditCard, Wallet } from "lucide-react";
+import { CreditCard, Wallet, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { Spinner } from "@/components/spinner";
+import Link from "next/link";
 
 interface Address {
   id: number;
   label: string;
   recipient_name: string;
-  phone: number; // matches backend response
+  phone: number;
   address_line1: string;
   address_line2?: string;
   city: string;
@@ -25,8 +26,27 @@ interface Address {
   is_default: boolean;
 }
 
-export default function CheckoutPage() {
-  const { cartItems, subtotal, clearCart, isFetching, hasFetched } = useCart();
+interface Product {
+  id: string;
+  price: number;
+  name: string;
+  image?: string;
+}
+
+interface CartItem {
+  id: string;
+  quantity: number;
+  product: Product;
+}
+
+export default function Main() {
+  const router = useRouter();
+  const [checkoutData, setCheckoutData] = useState<{
+    cartItems: CartItem[];
+    subtotal: number;
+    shipping: number;
+    total: number;
+  } | null>(null);
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
@@ -34,14 +54,53 @@ export default function CheckoutPage() {
   );
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [loading, setLoading] = useState(true);
+  const [hasValidData, setHasValidData] = useState(false);
 
-  const shippingFee = subtotal > 100 ? 0 : 10;
-  const total = subtotal + shippingFee;
-
-  /* ============================
-     Fetch addresses only
-  ============================ */
+  // Check if we have valid checkout data from sessionStorage
   useEffect(() => {
+    const storedData = sessionStorage.getItem("checkout_data");
+
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData);
+        const timestamp = parsed.timestamp || 0;
+        const now = Date.now();
+
+        // Check if data is less than 10 minutes old (600000 ms)
+        if (
+          now - timestamp < 600000 &&
+          parsed.cartItems &&
+          parsed.cartItems.length > 0
+        ) {
+          setCheckoutData({
+            cartItems: parsed.cartItems,
+            subtotal: parsed.subtotal,
+            shipping: parsed.shipping,
+            total: parsed.total,
+          });
+          setHasValidData(true);
+        } else {
+          // Data is too old or invalid, clear it
+          sessionStorage.removeItem("checkout_data");
+          setHasValidData(false);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Failed to parse checkout data:", error);
+        sessionStorage.removeItem("checkout_data");
+        setHasValidData(false);
+        setLoading(false);
+      }
+    } else {
+      setHasValidData(false);
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch addresses only if we have valid data
+  useEffect(() => {
+    if (!hasValidData) return;
+
     const fetchAddresses = async () => {
       try {
         const res = await axios.get(
@@ -62,13 +121,10 @@ export default function CheckoutPage() {
     };
 
     fetchAddresses();
-  }, []);
+  }, [hasValidData]);
 
-  /* ============================
-     Checkout
-  ============================ */
   const handleCheckout = async () => {
-    if (!selectedAddressId || !cartItems.length) return;
+    if (!selectedAddressId || !checkoutData?.cartItems.length) return;
 
     setLoading(true);
     try {
@@ -81,8 +137,11 @@ export default function CheckoutPage() {
         { withCredentials: true }
       );
 
-      clearCart();
+      // Clear the checkout data after successful order
+      sessionStorage.removeItem("checkout_data");
+
       toast.success("Order placed successfully!");
+      router.push("/orders");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
 
@@ -100,20 +159,31 @@ export default function CheckoutPage() {
     }
   };
 
-  /* ============================
-     States
-  ============================ */
-  if (isFetching && !hasFetched) {
-    return <p className="text-center py-12">Loading checkout…</p>;
+  // Show error if accessed without proper navigation
+  if (!hasValidData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <AlertCircle className="w-16 h-16 text-amber-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Order Information Updated</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Some product information in your order has been updated. Please go
+          back and try again.
+        </p>
+        <Link href="/cart">
+          <Button size="lg">Return to Cart</Button>
+        </Link>
+      </div>
+    );
   }
 
-  if (!cartItems.length) {
-    return <p className="text-center py-12">Your cart is empty</p>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner />
+      </div>
+    );
   }
 
-  /* ============================
-     UI
-  ============================ */
   return (
     <div className="mx-auto py-8 max-w-6xl">
       {loading && <Spinner />}
@@ -225,7 +295,7 @@ export default function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-3 text-sm">
-            {cartItems.map((item) => (
+            {checkoutData?.cartItems.map((item) => (
               <div key={item.id} className="flex justify-between">
                 <span>
                   {item.product.name} × {item.quantity}
@@ -237,17 +307,21 @@ export default function CheckoutPage() {
             <div className="border-t pt-3 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>₱{subtotal.toFixed(2)}</span>
+                <span>₱{checkoutData?.subtotal.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span>Shipping</span>
-                <span>{shippingFee === 0 ? "FREE" : `₱${shippingFee}`}</span>
+                <span>
+                  {checkoutData?.shipping === 0
+                    ? "FREE"
+                    : `₱${checkoutData?.shipping}`}
+                </span>
               </div>
 
               <div className="flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span>₱{total.toFixed(2)}</span>
+                <span>₱{checkoutData?.total.toFixed(2)}</span>
               </div>
             </div>
 

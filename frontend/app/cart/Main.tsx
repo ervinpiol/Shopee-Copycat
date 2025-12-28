@@ -23,6 +23,15 @@ export default function Main() {
   const total = subtotal + shipping;
 
   const handleCheckout = () => {
+    // Store cart data in sessionStorage before navigating
+    const checkoutData = {
+      cartItems,
+      subtotal,
+      shipping,
+      total,
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem("checkout_data", JSON.stringify(checkoutData));
     router.push("/checkout");
   };
 
