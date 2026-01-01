@@ -29,29 +29,29 @@ SELLER_ORDERS_CACHE_KEY = "seller_orders:all"
 SELLER_ORDER_CACHE_KEY = "seller_orders:{id}"
 
 
-@router.get("/{seller_id}", response_model=SellerRead)
-async def get_order(
-    seller_id: int,
+@router.get("", response_model=SellerRead)
+async def get_seller(
     session: AsyncSession = Depends(get_async_session),
-    redis=Depends(get_redis)
+    redis=Depends(get_redis),
+    current_user: User = Depends(fastapi_users.current_user()),
 ):  
     try:
         cache = CacheManager(redis)
-        cache_key = SELLER_CACHE_KEY.format(id=seller_id)
+        cache_key = SELLER_CACHE_KEY.format(id=current_user.id)
         cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
         result = await session.execute(
-            select(Seller).options(selectinload(Seller.items)).where(Seller.id == seller_id)
+            select(Seller).options(selectinload(Seller.products)).where(Seller.id == current_user.id)
         )
-        order = result.scalars().first()
+        seller = result.scalars().first()
 
-        if not order:
+        if not seller:
             raise HTTPException(status_code=404, detail="Seller not found")
         
         # Pydantic handles datetime serialization
-        data_json = SellerRead.model_validate(order).model_dump_json()
+        data_json = SellerRead.model_validate(seller).model_dump_json()
         await cache.set(cache_key, data_json)
 
         return json.loads(data_json)
