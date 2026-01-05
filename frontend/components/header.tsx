@@ -71,6 +71,13 @@ export function Header() {
           <Link href="/admin" className={getLinkClasses("/admin")}>
             Admin Panel
           </Link>
+
+          <Link
+            href="/become-seller"
+            className={getLinkClasses("/become-seller")}
+          >
+            Become Seller
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">

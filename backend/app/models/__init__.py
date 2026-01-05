@@ -4,4 +4,4 @@ from app.models.product import Product
 from app.models.user_order import Order
 from app.models.cart import CartItem
 from app.models.todo import Todo
-from app.models.seller_order import SellerOrder
+from app.models.seller import SellerOrder, Seller

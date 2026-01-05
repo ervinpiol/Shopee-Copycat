@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Loading } from "@/components/loading";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/spinner";
 
 export default function Main() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function Main() {
     subtotal,
     isFetching,
     hasFetched,
+    isProcessing,
   } = useCart();
   const shipping = subtotal > 100 ? 0 : 10;
   const total = subtotal + shipping;
@@ -56,6 +58,7 @@ export default function Main() {
 
   return (
     <div className="py-8">
+      {isProcessing && <Spinner />}
       <h1 className="text-3xl font-bold text-foreground mb-6">Shopping Cart</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
