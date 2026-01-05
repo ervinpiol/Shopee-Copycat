@@ -11,17 +11,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Spinner } from "@/components/spinner";
 import Link from "next/link";
+import { AddAddressDialog } from "@/components/add-address-dialog";
 
 interface Address {
   id: number;
   label: string;
   recipient_name: string;
-  phone: number;
+  phone: string;
   address_line1: string;
   address_line2?: string;
   city: string;
   province: string;
-  postal_code: number;
+  postal_code: string;
   country: string;
   is_default: boolean;
 }
@@ -55,6 +56,19 @@ export default function Main() {
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [loading, setLoading] = useState(true);
   const [hasValidData, setHasValidData] = useState(false);
+
+  const fetchAddresses = async () => {
+    const res = await axios.get("http://localhost:8000/users/me/addresses", {
+      withCredentials: true,
+    });
+
+    setAddresses(res.data);
+
+    const defaultAddress = res.data.find((a: Address) => a.is_default);
+    if (defaultAddress) {
+      setSelectedAddressId(defaultAddress.id);
+    }
+  };
 
   // Check if we have valid checkout data from sessionStorage
   useEffect(() => {
@@ -101,43 +115,23 @@ export default function Main() {
   useEffect(() => {
     if (!hasValidData) return;
 
-    const fetchAddresses = async () => {
-      try {
-        const res = await axios.get(
-          "http://localhost:8000/users/me/addresses",
-          { withCredentials: true }
-        );
-
-        setAddresses(res.data);
-
-        const defaultAddress = res.data.find((a: Address) => a.is_default);
-
-        if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAddresses();
+    fetchAddresses().finally(() => setLoading(false));
   }, [hasValidData]);
 
   const handleCheckout = async () => {
-    if (!selectedAddressId || !checkoutData?.cartItems.length) return;
+    if (!checkoutData?.cartItems.length || !selectedAddressId) return;
 
     setLoading(true);
     try {
       await axios.post(
         "http://localhost:8000/checkout",
         {
-          address_id: selectedAddressId,
-          payment_method: paymentMethod,
+          cart_item_ids: checkoutData.cartItems.map((item) => Number(item.id)),
+          user_address_id: selectedAddressId, // ✅ send the selected address
         },
         { withCredentials: true }
       );
 
-      // Clear the checkout data after successful order
       sessionStorage.removeItem("checkout_data");
 
       toast.success("Order placed successfully!");
@@ -176,14 +170,6 @@ export default function Main() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto py-8 max-w-6xl">
       {loading && <Spinner />}
@@ -201,9 +187,12 @@ export default function Main() {
           <Card className="border-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Delivery Address</CardTitle>
-              <Button size="sm" variant="outline">
-                Change
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline">
+                  Change
+                </Button>
+                <AddAddressDialog onSuccess={fetchAddresses} />
+              </div>
             </CardHeader>
 
             <CardContent className="space-y-4">

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime
+from app.schemas.user_order import OrderAddressRead
 
 
 class SellerBase(BaseModel):
@@ -30,7 +31,7 @@ class SellerUpdate(BaseModel):
     address_line2: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
-    postal_code: Optional[int] = None
+    postal_code: Optional[str] = None
     country: Optional[str] = None
 
 
@@ -43,7 +44,7 @@ class SellerRead(SellerBase):
     address_line2: Optional[str]
     city: str
     province: str
-    postal_code: int
+    postal_code: str
     country: str
 
     is_active: bool
@@ -67,6 +68,8 @@ class SellerOrderRead(BaseModel):
     total_price: float
     created_at: datetime
     updated_at: datetime
+
+    shipping_address: Optional[OrderAddressRead] = None
 
     class Config:
         from_attributes = True

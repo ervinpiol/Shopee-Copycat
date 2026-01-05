@@ -10,6 +10,26 @@ class OrderStatus(str, Enum):
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
+class OrderAddress(Base):
+    __tablename__ = "order_addresses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    seller_order_id = Column(Integer, ForeignKey("seller_orders.id", ondelete="CASCADE"), nullable=True, unique=True)
+
+    recipient_name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+
+    address_line1 = Column(String, nullable=False)
+    address_line2 = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    province = Column(String, nullable=False)
+    postal_code = Column(String, nullable=False)
+    country = Column(String, default="PH")
+
+    order = relationship("Order", back_populates="shipping_address", lazy="selectin")
+    seller_order = relationship("SellerOrder", back_populates="shipping_address", lazy="selectin")
+
 class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -31,6 +51,12 @@ class Order(Base):
 
     owner = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    shipping_address = relationship(
+        "OrderAddress",
+        uselist=False,
+        back_populates="order",
+        cascade="all, delete-orphan"
+    )
 
 
 class OrderItem(Base):
