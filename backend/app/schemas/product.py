@@ -43,5 +43,7 @@ class ProductRead(ProductBase):
     created_at: datetime
     updated_at: datetime
 
+    owner_id: int
+
     class Config:
         from_attributes = True

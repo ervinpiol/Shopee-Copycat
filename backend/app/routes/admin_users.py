@@ -18,7 +18,7 @@ ADMIN_USERS_CACHE_KEY = "admin_user:all"
 ADMIN_USER_CACHE_KEY = "admin_user:{id}"
 
 
-@router.get("/", response_model=list[UserRead])
+@router.get("", response_model=list[UserRead])
 async def get_admin_users(
     _: User = Depends(admin_required),   # 🔒 admin-only
     session: AsyncSession = Depends(get_async_session),

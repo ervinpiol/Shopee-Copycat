@@ -8,6 +8,7 @@ from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.routes.users import fastapi_users
 from app.models.users import User
+from app.models.seller import Seller
 from typing import List
 from fastapi.encoders import jsonable_encoder
 
@@ -38,7 +39,8 @@ async def get_products(
 
         result = await session.execute(select(Product))
         products = result.scalars().all()
-        data = [ProductRead.model_validate(p) for p in products]
+        valid_products = [p for p in products if p.seller_id is not None]
+        data = [ProductRead.model_validate(p) for p in valid_products]
         encoded = jsonable_encoder(data)
 
         await cache.set(PRODUCTS_CACHE_KEY, json.dumps(encoded))
@@ -46,6 +48,7 @@ async def get_products(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/{product_id}", response_model=ProductRead)
@@ -83,10 +86,14 @@ async def create_product(
     redis: Redis = Depends(get_redis)
 ):
     try:
+        seller = await session.get(Seller, current_user.id)
+        if not seller:
+            raise HTTPException(status_code=400, detail="Seller does not exist")
         cache = CacheManager(redis)
         product = Product(
             **product_create.model_dump(exclude_unset=True),
-            owner_id=current_user.id
+            owner_id=current_user.id,
+            seller_id=current_user.id
         )
         session.add(product)
         await session.commit()
