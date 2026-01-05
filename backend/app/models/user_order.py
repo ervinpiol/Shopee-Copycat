@@ -15,6 +15,7 @@ class OrderAddress(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    seller_order_id = Column(Integer, ForeignKey("seller_orders.id", ondelete="CASCADE"), nullable=True, unique=True)
 
     recipient_name = Column(String, nullable=False)
     phone = Column(String, nullable=False)
@@ -26,7 +27,8 @@ class OrderAddress(Base):
     postal_code = Column(String, nullable=False)
     country = Column(String, default="PH")
 
-    order = relationship("Order", back_populates="shipping_address")
+    order = relationship("Order", back_populates="shipping_address", lazy="selectin")
+    seller_order = relationship("SellerOrder", back_populates="shipping_address", lazy="selectin")
 
 class Order(Base):
     __tablename__ = "orders"

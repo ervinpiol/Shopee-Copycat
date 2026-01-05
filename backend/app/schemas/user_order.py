@@ -8,13 +8,12 @@ OrderStatusLiteral = Literal["pending", "processing", "shipped", "delivered", "c
 class OrderAddressRead(BaseModel):
     recipient_name: str
     phone: str
-
     address_line1: str
     address_line2: Optional[str] = None
     city: str
     province: str
     postal_code: str
-    country: str = "PH"
+    country: str
 
     class Config:
         from_attributes = True

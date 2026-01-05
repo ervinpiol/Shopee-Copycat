@@ -34,32 +34,41 @@ async def get_seller(
     session: AsyncSession = Depends(get_async_session),
     redis=Depends(get_redis),
     current_user: User = Depends(fastapi_users.current_user()),
-):  
+):
     try:
+        # Only users with role "seller" can access
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="User is not a seller")
+
         cache = CacheManager(redis)
         cache_key = SELLER_CACHE_KEY.format(id=current_user.id)
+
+        # Return cached seller if available
         cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
+        # Fetch seller from DB
         result = await session.execute(
-            select(Seller).options(selectinload(Seller.products)).where(Seller.id == current_user.id)
+            select(Seller).where(Seller.owner_id == current_user.id)
         )
         seller = result.scalars().first()
 
         if not seller:
+            # Raise 404 if seller does not exist
             raise HTTPException(status_code=404, detail="Seller not found")
-        
-        # Pydantic handles datetime serialization
-        data_json = SellerRead.model_validate(seller).model_dump_json()
-        await cache.set(cache_key, data_json)
 
-        return json.loads(data_json)
+        # Serialize the seller
+        data = SellerRead.model_validate(seller)
+        encoded = jsonable_encoder(data)
+
+        # Cache the seller
+        await cache.set(cache_key, json.dumps(encoded))
+
+        return encoded
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-
 
 
 @router.get("/order", response_model=List[SellerOrderRead])
@@ -77,13 +86,17 @@ async def get_orders(
         # Query seller orders for current user
         result = await session.execute(
             select(SellerOrder)
+            .options(selectinload(SellerOrder.shipping_address))
             .where(SellerOrder.owner_id == current_user.id)
         )
 
         orders = result.scalars().all()
 
         # Serialize using Pydantic
-        data = [SellerOrderRead.model_validate(o).model_dump(mode="json") for o in orders]
+        data = [
+            SellerOrderRead.model_validate(o).model_dump(mode="json")
+            for o in orders
+        ]
 
         # Store in cache
         await cache.set(SELLER_ORDERS_CACHE_KEY, json.dumps(data))

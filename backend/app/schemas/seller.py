@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime
+from app.schemas.user_order import OrderAddressRead
 
 
 class SellerBase(BaseModel):
@@ -67,6 +68,8 @@ class SellerOrderRead(BaseModel):
     total_price: float
     created_at: datetime
     updated_at: datetime
+
+    shipping_address: Optional[OrderAddressRead] = None
 
     class Config:
         from_attributes = True
