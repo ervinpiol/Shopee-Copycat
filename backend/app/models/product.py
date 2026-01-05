@@ -34,7 +34,8 @@ class Product(Base):
 
     seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=False)
     seller = relationship("Seller", back_populates="products")
-
+    owner_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    owner = relationship("User", back_populates="products")
     # ✅ Correct relationship
     order_items = relationship(
         "OrderItem",

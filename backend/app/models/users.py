@@ -26,7 +26,7 @@ class User(SQLAlchemyBaseUserTable[int], Base):
         back_populates="owner",
         uselist=False
     )
-
+    products = relationship("Product", back_populates="owner")
     seller_orders = relationship("SellerOrder", back_populates="owner")
     addresses = relationship(
         "UserAddress",

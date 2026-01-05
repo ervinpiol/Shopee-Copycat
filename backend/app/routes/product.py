@@ -171,21 +171,25 @@ async def upload_product_image(
     current_user: User = Depends(fastapi_users.current_user()),
     redis: Redis = Depends(get_redis),
 ):
-    cache = CacheManager(redis)
+    try:
+        cache = CacheManager(redis)
 
-    product = await session.get(Product, product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        product = await session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        if product.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
 
-    product.image = await upload_to_supabase(image)
+        product.image = await upload_to_supabase(image)
 
-    await session.commit()
-    await session.refresh(product)
+        await session.commit()
+        await session.refresh(product)
 
-    await cache.invalidate("products:all")
-    await cache.invalidate(f"products:{product_id}")
+        await cache.invalidate("products:all")
+        await cache.invalidate(f"products:{product_id}")
 
-    return ProductRead.model_validate(product)
+        return ProductRead.model_validate(product)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

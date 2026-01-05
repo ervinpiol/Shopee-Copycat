@@ -1,32 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import List
-
+from fastapi.encoders import jsonable_encoder
 from app.db import get_async_session
 from app.models.seller import Seller, SellerOrder
-from app.schemas.seller import SellerCreate, SellerRead, SellerUpdate, SellerOrderRead
+from app.schemas.seller import SellerRead, SellerOrderRead
 from app.routes.users import fastapi_users
 from app.models.users import User
-from typing import List
-from fastapi.encoders import jsonable_encoder
-
-from redis.asyncio import Redis
-import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
-
-from app.core.upload import upload_to_supabase
+import json
 
 router = APIRouter(prefix="/seller", tags=["seller"])
 
 # Cache keys
-SELLERS_CACHE_KEY = "sellers:all"
 SELLER_CACHE_KEY = "sellers:{id}"
-
-SELLER_ORDERS_CACHE_KEY = "seller_orders:all"
-SELLER_ORDER_CACHE_KEY = "seller_orders:{id}"
+SELLER_ORDERS_CACHE_KEY = "seller_orders:{id}"
 
 
 @router.get("", response_model=SellerRead)
@@ -36,7 +27,6 @@ async def get_seller(
     current_user: User = Depends(fastapi_users.current_user()),
 ):
     try:
-        # Only users with role "seller" can access
         if current_user.role != "seller":
             raise HTTPException(status_code=403, detail="User is not a seller")
 
@@ -55,10 +45,8 @@ async def get_seller(
         seller = result.scalars().first()
 
         if not seller:
-            # Raise 404 if seller does not exist
             raise HTTPException(status_code=404, detail="Seller not found")
 
-        # Serialize the seller
         data = SellerRead.model_validate(seller)
         encoded = jsonable_encoder(data)
 
@@ -72,18 +60,25 @@ async def get_seller(
 
 
 @router.get("/order", response_model=List[SellerOrderRead])
-async def get_orders(
+async def get_seller_orders(
     current_user: User = Depends(fastapi_users.current_user()),
     session: AsyncSession = Depends(get_async_session),
     redis=Depends(get_redis)
 ):
     try:
+        # Only sellers can access
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="User is not a seller")
+
         cache = CacheManager(redis)
-        cached = await cache.get(SELLER_ORDERS_CACHE_KEY)
+        cache_key = SELLER_ORDERS_CACHE_KEY.format(id=current_user.id)
+
+        # Return cached orders if available
+        cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
-        # Query seller orders for current user
+        # Fetch orders where owner_id is the seller's user id
         result = await session.execute(
             select(SellerOrder)
             .options(selectinload(SellerOrder.shipping_address))
@@ -98,10 +93,10 @@ async def get_orders(
             for o in orders
         ]
 
-        # Store in cache
-        await cache.set(SELLER_ORDERS_CACHE_KEY, json.dumps(data))
+        # Cache per seller
+        await cache.set(cache_key, json.dumps(data))
 
         return data
-
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
