@@ -47,8 +47,8 @@ export function AddAddressDialog({ onSuccess }: AddAddressDialogProps) {
         "http://localhost:8000/users/me/addresses",
         {
           ...form,
-          phone: Number(form.phone),
-          postal_code: Number(form.postal_code),
+          phone: String(form.phone),
+          postal_code: String(form.postal_code),
         },
         { withCredentials: true }
       );

@@ -17,12 +17,12 @@ interface Address {
   id: number;
   label: string;
   recipient_name: string;
-  phone: number;
+  phone: string;
   address_line1: string;
   address_line2?: string;
   city: string;
   province: string;
-  postal_code: number;
+  postal_code: string;
   country: string;
   is_default: boolean;
 }
@@ -119,7 +119,7 @@ export default function Main() {
   }, [hasValidData]);
 
   const handleCheckout = async () => {
-    if (!checkoutData?.cartItems.length) return;
+    if (!checkoutData?.cartItems.length || !selectedAddressId) return;
 
     setLoading(true);
     try {
@@ -127,6 +127,7 @@ export default function Main() {
         "http://localhost:8000/checkout",
         {
           cart_item_ids: checkoutData.cartItems.map((item) => Number(item.id)),
+          user_address_id: selectedAddressId, // ✅ send the selected address
         },
         { withCredentials: true }
       );

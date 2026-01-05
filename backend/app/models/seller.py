@@ -19,13 +19,13 @@ class Seller(Base):
 
     store_name = Column(String, nullable=False, unique=True)
     store_description = Column(String)
-    phone = Column(Integer, nullable=False)
+    phone = Column(String, nullable=False)
 
     address_line1 = Column(String, nullable=False)
     address_line2 = Column(String, nullable=True)
     city = Column(String, nullable=False)
     province = Column(String, nullable=False)
-    postal_code = Column(Integer, nullable=False)
+    postal_code = Column(String, nullable=False)
     country = Column(String, default="PH")
     store_category = Column(String, nullable=False)
 

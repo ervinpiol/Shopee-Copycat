@@ -5,10 +5,24 @@ from datetime import datetime
 # Define specific Literals for Orders vs Products
 OrderStatusLiteral = Literal["pending", "processing", "shipped", "delivered", "cancelled"]
 
+class OrderAddressRead(BaseModel):
+    recipient_name: str
+    phone: str
+
+    address_line1: str
+    address_line2: Optional[str] = None
+    city: str
+    province: str
+    postal_code: str
+    country: str = "PH"
+
+    class Config:
+        from_attributes = True
+
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
-    seller_id: int 
+    seller_id: int
     quantity: int
     total_price: float
     product_name: str
@@ -18,24 +32,27 @@ class OrderItemRead(BaseModel):
     class Config:
         from_attributes = True
 
-
-class OrderItemCreate(BaseModel):
-    product_id: int
-    quantity: int
-
 class OrderRead(BaseModel):
     id: int
     owner_id: int
     owner_name: str
     status: OrderStatusLiteral
     total_price: float
+
     items: List[OrderItemRead] = []
+    shipping_address: Optional[OrderAddressRead] = None
+
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
 
+
+class OrderItemCreate(BaseModel):
+    product_id: int
+    quantity: int
+    
 
 class OrderCreate(BaseModel):
     items: List[OrderItemCreate]

@@ -30,7 +30,7 @@ class SellerUpdate(BaseModel):
     address_line2: Optional[str] = None
     city: Optional[str] = None
     province: Optional[str] = None
-    postal_code: Optional[int] = None
+    postal_code: Optional[str] = None
     country: Optional[str] = None
 
 
@@ -43,7 +43,7 @@ class SellerRead(SellerBase):
     address_line2: Optional[str]
     city: str
     province: str
-    postal_code: int
+    postal_code: str
     country: str
 
     is_active: bool

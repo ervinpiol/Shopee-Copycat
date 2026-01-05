@@ -36,7 +36,10 @@ async def get_orders(
 
         result = await session.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(
+                selectinload(Order.items),
+                selectinload(Order.shipping_address),
+            )
             .where(Order.owner_id == current_user.id)
         )
 
@@ -75,10 +78,13 @@ async def get_order(
 
         result = await session.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(
+                selectinload(Order.items),
+                selectinload(Order.shipping_address),
+            )
             .where(
                 Order.id == order_id,
-                Order.owner_id == current_user.id,  # 🔐 ownership check
+                Order.owner_id == current_user.id,
             )
         )
         order = result.scalars().first()
