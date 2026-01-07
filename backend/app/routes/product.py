@@ -7,7 +7,7 @@ from app.db import get_async_session
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.routes.users import fastapi_users
-from app.models.users import User
+from app.models.users import User, UserRole
 from app.models.seller import Seller
 from typing import List
 from fastapi.encoders import jsonable_encoder
@@ -83,30 +83,57 @@ async def create_product(
     product_create: ProductCreate,
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
-    redis: Redis = Depends(get_redis)
+    redis: Redis = Depends(get_redis),
 ):
     try:
-        seller = await session.get(Seller, current_user.id)
+        # 1️⃣ Role check
+        if current_user.role != UserRole.seller:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only sellers can create products",
+            )
+
+        # 2️⃣ Seller profile must already exist
+        result = await session.execute(
+            select(Seller).where(Seller.owner_id == current_user.id)
+        )
+        seller = result.scalars().first()
+
         if not seller:
-            raise HTTPException(status_code=400, detail="Seller does not exist")
-        cache = CacheManager(redis)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Seller profile does not exist. Please complete seller registration.",
+            )
+
+        if not seller.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Seller account is not active",
+            )
+
+        # 3️⃣ Create product
         product = Product(
             **product_create.model_dump(exclude_unset=True),
             owner_id=current_user.id,
-            seller_id=current_user.id
+            seller_id=seller.id,  # ✅ correct FK
         )
+
         session.add(product)
         await session.commit()
         await session.refresh(product)
 
-        # Invalidate cache
+        # 4️⃣ Invalidate cache
+        cache = CacheManager(redis)
         await cache.invalidate(PRODUCTS_CACHE_KEY)
 
         return ProductRead.model_validate(product)
 
     except Exception as e:
         await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating product: {str(e)}",
+        )
 
 
 @router.patch("/{product_id}", response_model=ProductRead)

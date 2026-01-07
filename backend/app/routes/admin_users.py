@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db import get_async_session
 from app.models.users import User, UserRole
 from app.schemas.users import UserRead
+from app.models.seller import Seller
 from app.core.dependencies import admin_required
 
 import json
@@ -113,7 +115,7 @@ async def update_user_role(
     try:
         cache = CacheManager(redis)
 
-        # Prevent admin from changing their own role
+        # Prevent admin from changing own role
         if current_admin.id == user_id:
             raise HTTPException(
                 status_code=400,
@@ -123,27 +125,101 @@ async def update_user_role(
         user = await session.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-    
+
         if role not in UserRole.__members__:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid role. Allowed: {[r.value for r in UserRole]}",
             )
 
-        user.role = role
-        await session.commit()
-        await session.refresh(user)
+        user.role = UserRole[role]
 
-        # Invalidate caches
+        await session.commit()
+
+        # Invalidate cache
         await cache.invalidate(ADMIN_USERS_CACHE_KEY)
         await cache.invalidate(ADMIN_USER_CACHE_KEY.format(id=user_id))
 
         return {
             "success": True,
             "user_id": user.id,
-            "new_role": user.role,
+            "new_role": user.role.value,
         }
 
     except Exception as e:
         await session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/sellers/{seller_id}/activate")
+async def activate_seller(
+    seller_id: int,
+    _: User = Depends(admin_required),
+    session: AsyncSession = Depends(get_async_session),
+):
+    try:
+        result = await session.execute(
+            select(Seller)
+            .options(selectinload(Seller.owner))  # ✅ eager load
+            .where(Seller.id == seller_id)
+        )
+        seller = result.scalars().first()
+
+        if not seller:
+            raise HTTPException(404, "Seller not found")
+
+        if seller.owner.role != UserRole.seller:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot activate seller: user role is not 'seller'",
+            )
+
+        if seller.is_active:
+            return {"success": True, "message": "Seller already active"}
+
+        seller.is_active = True
+        await session.commit()
+
+        return {"success": True, "message": "Seller activated"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@router.patch("/sellers/{seller_id}/deactivate")
+async def deactivate_seller(
+    seller_id: int,
+    _: User = Depends(admin_required),
+    session: AsyncSession = Depends(get_async_session),
+):
+    try:
+        result = await session.execute(
+            select(Seller)
+            .options(selectinload(Seller.owner))  # ✅ eager load
+            .where(Seller.id == seller_id)
+        )
+        seller = result.scalars().first()
+
+        if not seller:
+            raise HTTPException(404, "Seller not found")
+
+        if seller.owner.role != UserRole.seller:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot deactivate seller: user role is not 'seller'",
+            )
+
+        if not seller.is_active:
+            return {"success": True, "message": "Seller already inactive"}
+
+        seller.is_active = False
+        await session.commit()
+
+        return {"success": True, "message": "Seller deactivated"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

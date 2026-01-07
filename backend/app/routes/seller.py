@@ -6,7 +6,8 @@ from typing import List
 from fastapi.encoders import jsonable_encoder
 from app.db import get_async_session
 from app.models.seller import Seller, SellerOrder
-from app.schemas.seller import SellerRead, SellerOrderRead
+from app.schemas.seller import SellerRead, SellerOrderRead, SellerCreate
+from app.models.users import UserRole
 from app.routes.users import fastapi_users
 from app.models.users import User
 from app.core.redis import get_redis
@@ -97,6 +98,33 @@ async def get_seller_orders(
         await cache.set(cache_key, json.dumps(data))
 
         return data
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/register", status_code=201)
+async def register_seller(
+    seller_create: SellerCreate,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(fastapi_users.current_user()),
+):
+    try:
+        result = await session.execute(
+            select(Seller).where(Seller.owner_id == current_user.id)
+        )
+        if result.scalars().first():
+            raise HTTPException(400, "Seller profile already exists")
+
+        seller = Seller(
+            owner_id=current_user.id,
+            **seller_create.model_dump()
+        )
+
+        session.add(seller)
+        await session.commit()
+
+        return {"message": "Seller profile created"}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
