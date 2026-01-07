@@ -17,7 +17,7 @@ class SellerCreate(SellerBase):
     address_line2: Optional[str] = None
     city: str
     province: str
-    postal_code: int
+    postal_code: str
     country: str = "PH"
 
 

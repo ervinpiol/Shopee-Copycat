@@ -6,7 +6,7 @@ from typing import List
 from fastapi.encoders import jsonable_encoder
 from app.db import get_async_session
 from app.models.seller import Seller, SellerOrder
-from app.schemas.seller import SellerRead, SellerOrderRead
+from app.schemas.seller import SellerRead, SellerOrderRead, SellerCreate
 from app.routes.users import fastapi_users
 from app.models.users import User
 from app.core.redis import get_redis
@@ -97,6 +97,36 @@ async def get_seller_orders(
         await cache.set(cache_key, json.dumps(data))
 
         return data
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/register", response_model=SellerRead)
+async def register_seller(
+    seller_create: SellerCreate,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(fastapi_users.current_user()),
+):
+    try:
+        # Check if user is already a seller
+        result = await session.execute(
+            select(Seller).where(Seller.owner_id == current_user.id)
+        )
+        existing_seller = result.scalars().first()
+        if existing_seller:
+            raise HTTPException(status_code=400, detail="User is already a seller")
+
+        # Create new seller with default values
+        new_seller = Seller(
+            owner_id=current_user.id,
+            **seller_create.model_dump()
+        )
+        session.add(new_seller)
+        await session.commit()
+        await session.refresh(new_seller)
+
+        return SellerRead.model_validate(new_seller)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
