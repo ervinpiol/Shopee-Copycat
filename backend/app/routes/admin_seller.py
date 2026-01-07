@@ -9,7 +9,7 @@ from app.models.seller import Seller, SellerOrder
 from app.schemas.seller import SellerRead, SellerOrderRead, SellerCreate
 from app.routes.users import fastapi_users
 from app.models.users import User
-from app.dependencies.auth import admin_required
+from app.core.dependencies import admin_required
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 import json
