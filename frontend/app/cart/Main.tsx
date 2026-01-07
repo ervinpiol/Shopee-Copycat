@@ -1,190 +1,199 @@
 "use client";
 
-import { useCart } from "@/context/CartContext";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ShoppingCart, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { Loading } from "@/components/loading";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useRouter } from "next/navigation";
-import { Spinner } from "@/components/spinner";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 
-export default function Main() {
-  const router = useRouter();
-  const {
-    cartItems,
-    updateQuantity,
-    removeItem,
-    subtotal,
-    isFetching,
-    hasFetched,
-    isProcessing,
-  } = useCart();
-  const shipping = subtotal > 100 ? 0 : 10;
-  const total = subtotal + shipping;
+interface Product {
+  id: string;
+  price: number;
+  name: string;
+  image?: string;
+}
 
-  const handleCheckout = () => {
-    // Store cart data in sessionStorage before navigating
-    const checkoutData = {
-      cartItems,
-      subtotal,
-      shipping,
-      total,
-      timestamp: Date.now(),
-    };
-    sessionStorage.setItem("checkout_data", JSON.stringify(checkoutData));
-    router.push("/checkout");
+interface CartItem {
+  id: string;
+  quantity: number;
+  product: Product;
+}
+
+interface CartContextType {
+  cartItems: CartItem[];
+  itemCount: number;
+  subtotal: number;
+  isFetching: boolean;
+  isProcessing: boolean;
+  hasFetched: boolean;
+  refreshCart: () => void;
+  addToCart: (productId: string, quantity?: number) => Promise<void>;
+  updateQuantity: (
+    cartItemId: string,
+    productId: string,
+    quantity: number
+  ) => Promise<void>;
+  removeItem: (cartItemId: string, productId: string) => Promise<void>;
+  clearCart: () => void;
+}
+
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+export function CartProvider({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const fetchCartItems = async () => {
+    if (!user) return;
+
+    setIsFetching(true);
+    try {
+      const { data } = await axios.get("http://localhost:8000/cart/items", {
+        withCredentials: true,
+      });
+      setCartItems(data ?? []);
+    } catch (err) {
+      console.error("Failed to fetch cart items", err);
+      setCartItems([]);
+    } finally {
+      setIsFetching(false);
+      setHasFetched(true);
+    }
   };
 
-  if (isFetching && !hasFetched) return <Loading />;
+  useEffect(() => {
+    if (!loading) {
+      fetchCartItems();
+    }
+  }, [user, loading]);
 
-  if (!cartItems.length) {
-    return (
-      <div className="text-center py-12">
-        <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Your cart is empty
-        </h2>
-        <p className="text-muted-foreground mb-6">
-          Add items to get started shopping
-        </p>
-        <Link href="/products">
-          <Button size="lg">Browse Products</Button>
-        </Link>
-      </div>
-    );
-  }
+  const addToCart = async (productId: string, quantity = 1) => {
+    if (!user) {
+      alert("Please login first.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const existingItem = cartItems.find(
+        (item) => item.product.id === productId
+      );
+
+      if (existingItem) {
+        const newQuantity = existingItem.quantity + quantity;
+        const { data } = await axios.put(
+          `http://localhost:8000/cart/items/${existingItem.id}`,
+          { product_id: productId, quantity: newQuantity },
+          { withCredentials: true }
+        );
+        setCartItems((prev) =>
+          (prev ?? []).map((item) =>
+            item.id === data.id ? { ...item, quantity: data.quantity } : item
+          )
+        );
+      } else {
+        const { data } = await axios.post(
+          "http://localhost:8000/cart/items",
+          { product_id: productId, quantity },
+          { withCredentials: true }
+        );
+        setCartItems((prev) => [...(prev ?? []), data]);
+      }
+    } catch (err: any) {
+      console.error("Failed to add item", err);
+      alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const updateQuantity = async (
+    cartItemId: string,
+    productId: string,
+    quantity: number
+  ) => {
+    if (!user) return;
+
+    setIsProcessing(true);
+    try {
+      const { data } = await axios.put(
+        `http://localhost:8000/cart/items/${cartItemId}`,
+        { product_id: productId, quantity },
+        { withCredentials: true }
+      );
+      setCartItems((prev) =>
+        (prev ?? []).map((item) =>
+          item.id === data.id ? { ...item, quantity: data.quantity } : item
+        )
+      );
+    } catch (err: any) {
+      console.error("Failed to update quantity", err);
+      alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const removeItem = async (cartItemId: string, productId: string) => {
+    if (!user) return;
+
+    setIsProcessing(true);
+    try {
+      await axios.delete(`http://localhost:8000/cart/items/${cartItemId}`, {
+        data: { product_id: productId },
+        withCredentials: true,
+      });
+      setCartItems((prev) =>
+        (prev ?? []).filter((item) => item.id !== cartItemId)
+      );
+    } catch (err: any) {
+      console.error("Failed to remove item", err);
+      alert(err.response?.data?.detail || err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  const itemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const subtotal = cartItems.reduce(
+    (acc, item) => acc + item.quantity * item.product.price,
+    0
+  );
 
   return (
-    <div className="py-8">
-      {isProcessing && <Spinner />}
-      <h1 className="text-3xl font-bold text-foreground mb-6">Shopping Cart</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
-          {cartItems.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="flex gap-4">
-                <Checkbox />
-
-                <div className="relative w-24 h-24 shrink-0 bg-muted rounded-lg overflow-hidden">
-                  <img
-                    src={item.product.image}
-                    alt={item.product.name}
-                    className="object-cover w-full h-full"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.insertAdjacentHTML(
-                        "afterend",
-                        `<span class="text-2xl bg-black uppercase font-bold flex items-center justify-center rounded-sm text-inverted w-full h-full">
-                          ${item.product.name.charAt(0)}
-                        </span>`
-                      );
-                    }}
-                  />
-                </div>
-
-                <div className="flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">
-                      {item.product.name}
-                    </h3>
-                    <p className="text-lg font-bold text-primary">
-                      ${item.product.price.toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center border border-border rounded-lg">
-                      <Button
-                        variant="ghost"
-                        onClick={() =>
-                          updateQuantity(
-                            item.id,
-                            item.product.id,
-                            item.quantity - 1
-                          )
-                        }
-                        disabled={item.quantity <= 1}
-                        className="rounded-r-none"
-                      >
-                        −
-                      </Button>
-                      <span className="py-1.5 w-10 text-foreground font-medium text-sm text-center flex items-center justify-center">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        onClick={() =>
-                          updateQuantity(
-                            item.id,
-                            item.product.id,
-                            item.quantity + 1
-                          )
-                        }
-                        className="rounded-l-none"
-                      >
-                        +
-                      </Button>
-                    </div>
-
-                    <p className="font-bold text-foreground">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </p>
-
-                    <Button
-                      variant="destructive"
-                      onClick={() => removeItem(item.id, item.product.id)}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="lg:col-span-1">
-          <Card className="sticky top-4">
-            <CardContent>
-              <h2 className="text-xl font-bold text-foreground mb-4">
-                Order Summary
-              </h2>
-              <div className="space-y-3 mb-4 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal ({cartItems.length} items)</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Shipping</span>
-                  <span
-                    className={shipping === 0 ? "text-primary font-medium" : ""}
-                  >
-                    {shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}
-                  </span>
-                </div>
-              </div>
-              <div className="border-t border-border pt-3 mb-6">
-                <div className="flex justify-between font-bold text-foreground">
-                  <span>Total</span>
-                  <span className="text-xl">${total.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Button className="w-full" size="lg" onClick={handleCheckout}>
-                  Proceed to Checkout
-                </Button>
-                <Link href="/products" className="block">
-                  <Button variant="outline" className="w-full bg-transparent">
-                    Continue Shopping
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+    <CartContext.Provider
+      value={{
+        cartItems,
+        itemCount,
+        subtotal,
+        isFetching,
+        isProcessing,
+        hasFetched,
+        refreshCart: fetchCartItems,
+        addToCart,
+        updateQuantity,
+        removeItem,
+        clearCart,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
   );
+}
+
+export function useCart() {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error("useCart must be inside CartProvider");
+  return ctx;
 }
