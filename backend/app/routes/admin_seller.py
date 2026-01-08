@@ -51,7 +51,7 @@ async def get_all_sellers(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/{seller_id}/activate-deactivate", response_model=SellerRead)
+@router.patch("/{seller_id}/activate-reject", response_model=SellerRead)
 async def toggle_seller_activation(
     seller_id: int,
     _: User = Depends(admin_required),
