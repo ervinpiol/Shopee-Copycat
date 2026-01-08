@@ -3,19 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import List
-from fastapi.encoders import jsonable_encoder
 from app.db import get_async_session
-from app.models.seller import Seller, SellerOrder
-from app.schemas.seller import SellerRead, SellerOrderRead, SellerCreate
+from app.models.seller import Seller, SellerStatus
+from app.schemas.seller import SellerRead
 from app.routes.users import fastapi_users
-from app.models.users import User
+from app.models.users import User, UserRole
 from app.core.dependencies import admin_required
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 import json
 
 router = APIRouter(prefix="/admin/seller", tags=["admin_seller"])
-
 
 ADMIN_SELLERS_CACHE_KEY = "admin_seller:all"
 ADMIN_SELLER_CACHE_KEY = "admin_seller:{id}"
@@ -49,17 +47,52 @@ async def get_all_sellers(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
 
-
-@router.patch("/{seller_id}/activate-reject", response_model=SellerRead)
-async def toggle_seller_activation(
+@router.get("/{seller_id}", response_model=SellerRead)
+async def get_seller_by_id(
     seller_id: int,
     _: User = Depends(admin_required),
     session: AsyncSession = Depends(get_async_session),
-    is_active: bool | None = None
+    redis=Depends(get_redis),
 ):
     try:
-        # Fetch the seller
+        cache = CacheManager(redis)
+        cache_key = ADMIN_SELLER_CACHE_KEY.format(id=seller_id)
+
+        # 1️⃣ Check cache first
+        cached = await cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
+        # 2️⃣ If not cached, query database
+        result = await session.execute(select(Seller).where(Seller.id == seller_id))
+        seller = result.scalars().first()
+
+        if not seller:
+            raise HTTPException(status_code=404, detail="Seller not found")
+
+        data = SellerRead.model_validate(seller).model_dump()
+
+        # 3️⃣ Save to cache
+        await cache.set(cache_key, json.dumps(data, default=str))
+
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{seller_id}/activate-reject", response_model=SellerRead)
+async def toggle_seller_status(
+    seller_id: int,
+    status: SellerStatus,  # admin must send either "approved" or "declined"
+    _: User = Depends(admin_required),
+    session: AsyncSession = Depends(get_async_session),
+    redis = Depends(get_redis),
+):
+    try:
+        # Fetch seller with owner
         result = await session.execute(
             select(Seller).options(selectinload(Seller.owner)).where(Seller.id == seller_id)
         )
@@ -68,22 +101,23 @@ async def toggle_seller_activation(
         if not seller:
             raise HTTPException(status_code=404, detail="Seller not found")
 
-        # Toggle or set is_active
-        if is_active is not None:
-            seller.is_active = is_active
-        else:
-            seller.is_active = not seller.is_active
+        # Update seller status
+        seller.status = status
 
-        # Update the related user's role
+        # Update user role if approved
         if seller.owner:
-            from app.models.users import UserRole
-            seller.owner.role = UserRole.seller if seller.is_active else UserRole.customer
+            seller.owner.role = UserRole.seller if status == SellerStatus.approved else UserRole.customer
             session.add(seller.owner)
 
         # Commit changes
         session.add(seller)
         await session.commit()
         await session.refresh(seller)
+
+        # 🔄 Invalidate cache using your CacheManager
+        cache = CacheManager(redis)
+        await cache.invalidate(ADMIN_SELLERS_CACHE_KEY)
+        await cache.invalidate(ADMIN_SELLER_CACHE_KEY.format(id=seller.id))
 
         return SellerRead.model_validate(seller)
 

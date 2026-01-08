@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import Optional
 from datetime import datetime
 from app.schemas.user_order import OrderAddressRead
-from enum import Enum
+from app.models.seller import SellerStatus, SellerOrderStatus
 
 
 class SellerBase(BaseModel):
@@ -13,20 +13,19 @@ class SellerBase(BaseModel):
 
 class SellerCreate(SellerBase):
     phone: str
-
     address_line1: str
     address_line2: Optional[str] = None
     city: str
     province: str
     postal_code: str
     country: str = "PH"
+    status: SellerStatus = SellerStatus.pending
 
 
 class SellerUpdate(BaseModel):
     store_name: Optional[str] = None
     store_description: Optional[str] = None
     store_category: Optional[str] = None
-
     phone: Optional[str] = None
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
@@ -34,12 +33,12 @@ class SellerUpdate(BaseModel):
     province: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
+    status: Optional[SellerStatus] = None
 
 
 class SellerRead(SellerBase):
     id: int
     owner_id: int
-
     phone: str
     address_line1: str
     address_line2: Optional[str]
@@ -47,8 +46,7 @@ class SellerRead(SellerBase):
     province: str
     postal_code: str
     country: str
-
-    is_active: bool
+    status: SellerStatus
     created_at: datetime
     updated_at: datetime
 
@@ -58,14 +56,6 @@ class SellerRead(SellerBase):
 
 
 ## SELLER ORDER
-class SellerOrderStatus(str, Enum):
-    pending = "pending"
-    processing = "processing"
-    shipped = "shipped"
-    delivered = "delivered"
-    cancelled = "cancelled"
-
-
 class SellerOrderRead(BaseModel):
     id: int
     owner_id: int
