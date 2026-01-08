@@ -19,7 +19,6 @@ class SellerCreate(SellerBase):
     province: str
     postal_code: str
     country: str = "PH"
-    status: SellerStatus = SellerStatus.pending
 
 
 class SellerUpdate(BaseModel):

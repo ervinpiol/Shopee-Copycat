@@ -10,6 +10,8 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from app.models.users import User
 from app.db import get_user_db
 from app.core.config import settings
+from app.core.cache import CacheManager
+from app.core.redis import get_redis
 
 class UserManager(BaseUserManager[User, int]):
     reset_password_token_secret = settings.SECRET_KEY
@@ -27,6 +29,22 @@ class UserManager(BaseUserManager[User, int]):
         self, user: User, token: str, request: Request | None = None
     ):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
+
+    async def on_after_login(
+        self,
+        user: User,
+        request: Request | None = None,
+        authenticate_call: bool = False,
+    ) -> None:
+        """Clear user cache on login"""
+        try:
+            redis = request.app.state.redis if request else None
+            if redis:
+                cache = CacheManager(redis)
+                await cache.clear_user_cache(user.id)
+                print(f"Cache cleared for user {user.id}")
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
 
     # 🔑 REQUIRED when not using UUIDs
     def parse_id(self, id: str) -> int:
