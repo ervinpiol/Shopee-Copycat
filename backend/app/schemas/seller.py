@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime
 from app.schemas.user_order import OrderAddressRead
+from enum import Enum
 
 
 class SellerBase(BaseModel):
@@ -57,14 +58,19 @@ class SellerRead(SellerBase):
 
 
 ## SELLER ORDER
-SellerOrderStatusLiteral = Literal["pending", "processing", "shipped", "delivered", "cancelled"]
+class SellerOrderStatus(str, Enum):
+    pending = "pending"
+    processing = "processing"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
 
 
 class SellerOrderRead(BaseModel):
     id: int
     owner_id: int
     owner_name: str
-    status: SellerOrderStatusLiteral
+    status: SellerOrderStatus
     total_price: float
     created_at: datetime
     updated_at: datetime
@@ -76,10 +82,10 @@ class SellerOrderRead(BaseModel):
 
 
 class SellerOrderCreate(BaseModel):
-    status: SellerOrderStatusLiteral = "pending"
+    status: SellerOrderStatus = "pending"
     total_price: float = 0.0
 
 
 class SellerOrderUpdate(BaseModel):
-    status: Optional[SellerOrderStatusLiteral] = None
+    status: Optional[SellerOrderStatus] = None
     total_price: Optional[float] = None

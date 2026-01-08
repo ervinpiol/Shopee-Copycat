@@ -51,31 +51,41 @@ async def get_all_sellers(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/{seller_id/activate-deactivate", response_model=SellerRead)
+@router.patch("/{seller_id}/activate-deactivate", response_model=SellerRead)
 async def toggle_seller_activation(
     seller_id: int,
     _: User = Depends(admin_required),
     session: AsyncSession = Depends(get_async_session),
-    is_active: bool = None
+    is_active: bool | None = None
 ):
     try:
+        # Fetch the seller
         result = await session.execute(
-            select(Seller).where(Seller.id == seller_id)
+            select(Seller).options(selectinload(Seller.owner)).where(Seller.id == seller_id)
         )
         seller = result.scalars().first()
 
         if not seller:
             raise HTTPException(status_code=404, detail="Seller not found")
 
+        # Toggle or set is_active
         if is_active is not None:
             seller.is_active = is_active
         else:
             seller.is_active = not seller.is_active
 
+        # Update the related user's role
+        if seller.owner:
+            from app.models.users import UserRole
+            seller.owner.role = UserRole.seller if seller.is_active else UserRole.customer
+            session.add(seller.owner)
+
+        # Commit changes
+        session.add(seller)
         await session.commit()
         await session.refresh(seller)
 
         return SellerRead.model_validate(seller)
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
