@@ -19,6 +19,7 @@ from app.routes.checkout import router as checkout_router
 from app.routes.user_order import router as user_order_router
 from app.routes.seller import router as seller_router
 from app.routes.user_address import router as user_address_router
+from app.routes.admin_seller import router as admin_seller_router
 
 
 @asynccontextmanager
@@ -97,3 +98,4 @@ app.include_router(checkout_router)
 app.include_router(user_order_router)
 app.include_router(seller_router)
 app.include_router(user_address_router)
+app.include_router(admin_seller_router)

@@ -21,11 +21,17 @@ class ProductBase(BaseModel):
     status: Optional[StatusLiteral] = Field(None, example="out_of_stock")
 
 
+# -----------------------------
+# Input Schemas
+# -----------------------------
+
 class ProductCreate(ProductBase):
+    """For seller to create a product"""
     pass
 
 
 class ProductUpdate(BaseModel):
+    """For seller to update a product partially"""
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = Field(None, ge=0)
@@ -35,11 +41,26 @@ class ProductUpdate(BaseModel):
     rating: Optional[float] = Field(None, ge=0, le=5)
     reviews: Optional[int] = Field(None, ge=0)
     category: Optional[CategoryLiteral] = None
+    status: Optional[StatusLiteral] = None
 
 
-class ProductRead(ProductBase):
+# -----------------------------
+# Output Schemas
+# -----------------------------
+
+class PublicProductRead(ProductBase):
+    """Returned to public users (no seller/internal info)"""
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class SellerProductRead(ProductBase):
+    """Returned to seller/admin with extra info"""
     id: int
     seller_id: int
+    status: Optional[StatusLiteral]  # Show status even if not active
     created_at: datetime
     updated_at: datetime
 

@@ -27,16 +27,17 @@ class Product(Base):
     rating = Column(Float, nullable=False, default=0.0)
     reviews = Column(Integer, nullable=False, default=0)
     category = Column(SqlEnum(CategoryEnum, name="category_enum"), nullable=True)
-    status = Column(SqlEnum(StatusEnum, name="status_enum"), nullable=True)
+    status = Column(SqlEnum(StatusEnum, name="status_enum"), nullable=False, server_default=StatusEnum.in_stock.value)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=False)
     seller = relationship("Seller", back_populates="products")
+
     owner_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     owner = relationship("User", back_populates="products")
-    # ✅ Correct relationship
+
     order_items = relationship(
         "OrderItem",
         back_populates="product",

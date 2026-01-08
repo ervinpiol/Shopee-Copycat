@@ -8,9 +8,7 @@ class UserRead(schemas.BaseUser[int]):
 class UserCreate(schemas.BaseUserCreate):
     first_name: str
     last_name: str
-    role: str = "customer"
 
 class UserUpdate(schemas.BaseUserUpdate):
     first_name: str | None = None
     last_name: str | None = None
-    role: str | None = None

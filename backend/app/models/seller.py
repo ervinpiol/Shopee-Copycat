@@ -1,8 +1,20 @@
 # models/seller.py
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func, Enum as SqlEnum, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Enum as SqlEnum, Float
 from sqlalchemy.orm import relationship
 from app.db import Base
 from enum import Enum
+
+class SellerStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    declined = "declined"
+
+class SellerOrderStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
 
 
 class Seller(Base):
@@ -22,8 +34,8 @@ class Seller(Base):
     postal_code = Column(String, nullable=False)
     country = Column(String, default="PH")
     store_category = Column(String, nullable=False)
+    status=Column(String, nullable=False, default="pending")
 
-    is_active = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -34,14 +46,6 @@ class Seller(Base):
 
 
 ## SELLER ORDER
-
-class SellerOrderStatus(str, Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    SHIPPED = "shipped"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
-
 class SellerOrder(Base):
     __tablename__ = "seller_orders"
 

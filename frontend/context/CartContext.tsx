@@ -21,6 +21,7 @@ interface CartItem {
   id: string;
   quantity: number;
   product: Product;
+  selected: boolean; // new
 }
 
 interface CartContextType {
@@ -39,6 +40,7 @@ interface CartContextType {
   ) => Promise<void>;
   removeItem: (cartItemId: string, productId: string) => Promise<void>;
   clearCart: () => void;
+  toggleSelectItem: (cartItemId: string) => void; // new
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -58,7 +60,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const { data } = await axios.get("http://localhost:8000/cart/items", {
         withCredentials: true,
       });
-      setCartItems(data ?? []);
+      setCartItems(
+        data?.map((item: any) => ({ ...item, selected: true })) ?? []
+      );
     } catch (err) {
       console.error("Failed to fetch cart items", err);
       setCartItems([]);
@@ -104,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           { product_id: productId, quantity },
           { withCredentials: true }
         );
-        setCartItems((prev) => [...(prev ?? []), data]);
+        setCartItems((prev) => [...(prev ?? []), { ...data, selected: true }]);
       }
     } catch (err: any) {
       console.error("Failed to add item", err);
@@ -165,8 +169,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCartItems([]);
   };
 
-  const itemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartItems.reduce(
+  const toggleSelectItem = (cartItemId: string) => {
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.id === cartItemId ? { ...item, selected: !item.selected } : item
+      )
+    );
+  };
+
+  const selectedItems = cartItems.filter((item) => item.selected);
+
+  const itemCount = selectedItems.reduce((acc, item) => acc + item.quantity, 0);
+  const subtotal = selectedItems.reduce(
     (acc, item) => acc + item.quantity * item.product.price,
     0
   );
@@ -185,6 +199,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         removeItem,
         clearCart,
+        toggleSelectItem,
       }}
     >
       {children}

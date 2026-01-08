@@ -11,23 +11,43 @@ import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-router = APIRouter(prefix="/admin/users", tags=["admin_users"])
+router = APIRouter(prefix="/admin/users", tags=["admin"])
 
 # Cache keys
 ADMIN_USERS_CACHE_KEY = "admin_user:all"
 ADMIN_USER_CACHE_KEY = "admin_user:{id}"
 
 
-@router.get("/", response_model=list[UserRead])
+@router.get("", response_model=list[UserRead])
 async def get_admin_users(
-    _: User = Depends(admin_required),   # 🔒 admin-only
+    _: User = Depends(admin_required),  # 🔒 only admin
     session: AsyncSession = Depends(get_async_session),
+    redis=Depends(get_redis),
 ):
+    """
+    Get all users. Admin-only endpoint with Redis caching.
+    """
     try:
+        cache = CacheManager(redis)
+
+        # 1️⃣ Check cache first
+        cached = await cache.get(ADMIN_USERS_CACHE_KEY)
+        if cached:
+            # cached is a JSON string → convert back to Python list
+            return json.loads(cached)
+
+        # 2️⃣ If not cached, query database
         result = await session.execute(select(User))
         users = result.scalars().all()
-        return users
-    
+
+        # Convert to Pydantic models and then to dicts
+        data = [UserRead.model_validate(u).model_dump() for u in users]
+
+        # 3️⃣ Save to cache
+        await cache.set(ADMIN_USERS_CACHE_KEY, json.dumps(data))
+
+        return data
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

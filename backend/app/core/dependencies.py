@@ -11,3 +11,14 @@ def admin_required(
             detail="Admin access required",
         )
     return user
+
+
+def seller_required(
+    user: User = Depends(current_active_user),
+) -> User:
+    if user.role != "seller":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User role must be seller",
+        )
+    return user

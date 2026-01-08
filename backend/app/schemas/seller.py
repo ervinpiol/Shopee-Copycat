@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import Optional
 from datetime import datetime
 from app.schemas.user_order import OrderAddressRead
+from app.models.seller import SellerStatus, SellerOrderStatus
 
 
 class SellerBase(BaseModel):
@@ -12,12 +13,11 @@ class SellerBase(BaseModel):
 
 class SellerCreate(SellerBase):
     phone: str
-
     address_line1: str
     address_line2: Optional[str] = None
     city: str
     province: str
-    postal_code: int
+    postal_code: str
     country: str = "PH"
 
 
@@ -25,7 +25,6 @@ class SellerUpdate(BaseModel):
     store_name: Optional[str] = None
     store_description: Optional[str] = None
     store_category: Optional[str] = None
-
     phone: Optional[str] = None
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
@@ -33,12 +32,12 @@ class SellerUpdate(BaseModel):
     province: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
+    status: Optional[SellerStatus] = None
 
 
 class SellerRead(SellerBase):
     id: int
     owner_id: int
-
     phone: str
     address_line1: str
     address_line2: Optional[str]
@@ -46,8 +45,7 @@ class SellerRead(SellerBase):
     province: str
     postal_code: str
     country: str
-
-    is_active: bool
+    status: SellerStatus
     created_at: datetime
     updated_at: datetime
 
@@ -57,14 +55,11 @@ class SellerRead(SellerBase):
 
 
 ## SELLER ORDER
-SellerOrderStatusLiteral = Literal["pending", "processing", "shipped", "delivered", "cancelled"]
-
-
 class SellerOrderRead(BaseModel):
     id: int
     owner_id: int
     owner_name: str
-    status: SellerOrderStatusLiteral
+    status: SellerOrderStatus
     total_price: float
     created_at: datetime
     updated_at: datetime
@@ -76,10 +71,10 @@ class SellerOrderRead(BaseModel):
 
 
 class SellerOrderCreate(BaseModel):
-    status: SellerOrderStatusLiteral = "pending"
+    status: SellerOrderStatus = "pending"
     total_price: float = 0.0
 
 
 class SellerOrderUpdate(BaseModel):
-    status: Optional[SellerOrderStatusLiteral] = None
+    status: Optional[SellerOrderStatus] = None
     total_price: Optional[float] = None
