@@ -11,7 +11,7 @@ import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-router = APIRouter(prefix="/admin/users", tags=["admin_users"])
+router = APIRouter(prefix="/admin/users", tags=["admin"])
 
 # Cache keys
 ADMIN_USERS_CACHE_KEY = "admin_user:all"
