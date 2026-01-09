@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
 from app.db import get_async_session
 from app.models.product import Product
-from app.schemas.product import ProductCreate, PublicProductRead, ProductUpdate
-from app.routes.users import fastapi_users
-from app.models.users import User
+from app.schemas.product import PublicProductRead
 from typing import List
 from fastapi.encoders import jsonable_encoder
 
@@ -16,7 +14,6 @@ import json
 from app.core.redis import get_redis
 from app.core.cache import CacheManager
 
-from app.core.upload import upload_to_supabase
 
 router = APIRouter(prefix="/product", tags=["product"])
 
@@ -28,20 +25,33 @@ PRODUCT_CACHE_KEY = "products:{id}"
 @router.get("", response_model=List[PublicProductRead])
 async def get_products(
     session: AsyncSession = Depends(get_async_session),
-    redis: Redis = Depends(get_redis)
+    redis: Redis = Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=500),      # items per page, max 500
 ):
     try:
         cache = CacheManager(redis)
-        cached = await cache.get(PRODUCTS_CACHE_KEY)
+        offset = (page - 1) * limit
+
+        # Include page and limit in cache key
+        cache_key = f"{PRODUCTS_CACHE_KEY}:page:{page}:limit:{limit}"
+
+        # 1️⃣ Return cached products if available
+        cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
-        result = await session.execute(select(Product))
+        # 2️⃣ Query database with pagination
+        result = await session.execute(select(Product).offset(offset).limit(limit))
         products = result.scalars().all()
+
+        # 3️⃣ Serialize using Pydantic
         data = [PublicProductRead.model_validate(p) for p in products]
         encoded = jsonable_encoder(data)
 
-        await cache.set(PRODUCTS_CACHE_KEY, json.dumps(encoded))
+        # 4️⃣ Cache the page
+        await cache.set(cache_key, json.dumps(encoded, default=str))
+
         return encoded
 
     except Exception as e:
@@ -73,123 +83,3 @@ async def get_product(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @router.post("", response_model=PublicProductRead, status_code=status.HTTP_201_CREATED)
-# async def create_product(
-#     product_create: ProductCreate,
-#     session: AsyncSession = Depends(get_async_session),
-#     current_user: User = Depends(fastapi_users.current_user()),
-#     redis: Redis = Depends(get_redis)
-# ):
-#     try:
-#         cache = CacheManager(redis)
-#         product = Product(
-#             **product_create.model_dump(exclude_unset=True),
-#             owner_id=current_user.id
-#         )
-#         session.add(product)
-#         await session.commit()
-#         await session.refresh(product)
-
-#         # Invalidate cache
-#         await cache.invalidate(PRODUCTS_CACHE_KEY)
-
-#         return PublicProductRead.model_validate(product)
-
-#     except Exception as e:
-#         await session.rollback()
-#         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
-
-
-# @router.patch("/{product_id}", response_model=PublicProductRead)
-# async def update_product(
-#     product_id: int,
-#     product_update: ProductUpdate = Body(...),
-#     session: AsyncSession = Depends(get_async_session),
-#     current_user: User = Depends(fastapi_users.current_user()),
-#     redis: Redis = Depends(get_redis)
-# ):
-#     try:
-#         cache = CacheManager(redis)
-#         product = await session.get(Product, product_id)
-#         if not product:
-#             raise HTTPException(status_code=404, detail="Product not found")
-#         if product.owner_id != current_user.id:
-#             raise HTTPException(status_code=403, detail="Not authorized")
-
-#         update_data = product_update.model_dump(exclude_unset=True)
-#         for key, value in update_data.items():
-#             setattr(product, key, value)
-
-#         await session.commit()
-#         await session.refresh(product)
-
-#         # Invalidate caches
-#         await cache.invalidate(PRODUCTS_CACHE_KEY)
-#         await cache.invalidate(PRODUCT_CACHE_KEY.format(id=product_id))
-
-#         return PublicProductRead.model_validate(product)
-
-#     except Exception as e:
-#         await session.rollback()
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @router.delete("/{product_id}")
-# async def delete_product(
-#     product_id: int,
-#     session: AsyncSession = Depends(get_async_session),
-#     current_user: User = Depends(fastapi_users.current_user()),
-#     redis: Redis = Depends(get_redis)
-# ):
-#     try:
-#         cache = CacheManager(redis)
-#         product = await session.get(Product, product_id)
-#         if not product:
-#             raise HTTPException(status_code=404, detail="Product not found")
-#         if product.owner_id != current_user.id:
-#             raise HTTPException(status_code=403, detail="Not authorized")
-
-#         await session.delete(product)
-#         await session.commit()
-
-#         # Invalidate caches
-#         await cache.invalidate(PRODUCTS_CACHE_KEY)
-#         await cache.invalidate(PRODUCT_CACHE_KEY.format(id=product_id))
-
-#         return {"success": True, "message": "Product successfully deleted"}
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# @router.post("/{product_id}/image", response_model=PublicProductRead)
-# async def upload_product_image(
-#     product_id: int,
-#     image: UploadFile = File(...),
-#     session: AsyncSession = Depends(get_async_session),
-#     current_user: User = Depends(fastapi_users.current_user()),
-#     redis: Redis = Depends(get_redis),
-# ):
-#     try:
-#         cache = CacheManager(redis)
-
-#         product = await session.get(Product, product_id)
-#         if not product:
-#             raise HTTPException(status_code=404, detail="Product not found")
-
-#         if product.owner_id != current_user.id:
-#             raise HTTPException(status_code=403, detail="Not authorized")
-
-#         product.image = await upload_to_supabase(image)
-
-#         await session.commit()
-#         await session.refresh(product)
-
-#         await cache.invalidate("products:all")
-#         await cache.invalidate(f"products:{product_id}")
-
-#         return PublicProductRead.model_validate(product)
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -23,25 +23,32 @@ async def get_all_sellers(
     _: User = Depends(admin_required),
     session: AsyncSession = Depends(get_async_session),
     redis=Depends(get_redis),
+    page: int = Query(1, ge=1),                # page number, default 1
+    limit: int = Query(20, ge=1, le=500),     # items per page
 ):
     try:
         cache = CacheManager(redis)
 
+        # Calculate offset from page
+        offset = (page - 1) * limit
+
+        # Use page and limit in cache key
+        cache_key = f"{ADMIN_SELLERS_CACHE_KEY}:page:{page}:limit:{limit}"
+
         # 1️⃣ Check cache first
-        cached = await cache.get(ADMIN_SELLERS_CACHE_KEY)
+        cached = await cache.get(cache_key)
         if cached:
-            # cached is a JSON string → convert back to Python list
             return json.loads(cached)
 
-        # 2️⃣ If not cached, query database
-        result = await session.execute(select(Seller))
+        # 2️⃣ Query database with limit & offset
+        result = await session.execute(select(Seller).offset(offset).limit(limit))
         sellers = result.scalars().all()
 
         # Convert to dicts
         data = [SellerRead.model_validate(s).model_dump() for s in sellers]
 
-        # 3️⃣ Save to cache (fix datetime serialization)
-        await cache.set(ADMIN_SELLERS_CACHE_KEY, json.dumps(data, default=str))
+        # 3️⃣ Save to cache (handle datetime serialization)
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
     

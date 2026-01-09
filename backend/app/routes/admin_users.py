@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -23,28 +23,35 @@ async def get_admin_users(
     _: User = Depends(admin_required),  # 🔒 only admin
     session: AsyncSession = Depends(get_async_session),
     redis=Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=500),      # max 500 per request
 ):
     """
-    Get all users. Admin-only endpoint with Redis caching.
+    Get all users with pagination (page + limit). Admin-only endpoint with Redis caching.
     """
     try:
         cache = CacheManager(redis)
 
+        # Calculate offset internally
+        offset = (page - 1) * limit
+
+        # Cache key now includes page and limit
+        cache_key = f"{ADMIN_USERS_CACHE_KEY}:page:{page}:limit:{limit}"
+
         # 1️⃣ Check cache first
-        cached = await cache.get(ADMIN_USERS_CACHE_KEY)
+        cached = await cache.get(cache_key)
         if cached:
-            # cached is a JSON string → convert back to Python list
             return json.loads(cached)
 
-        # 2️⃣ If not cached, query database
-        result = await session.execute(select(User))
+        # 2️⃣ Query database with limit & offset
+        result = await session.execute(select(User).offset(offset).limit(limit))
         users = result.scalars().all()
 
-        # Convert to Pydantic models and then to dicts
+        # Convert to Pydantic models and then dicts
         data = [UserRead.model_validate(u).model_dump() for u in users]
 
         # 3️⃣ Save to cache
-        await cache.set(ADMIN_USERS_CACHE_KEY, json.dumps(data))
+        await cache.set(cache_key, json.dumps(data, default=str))  # handle datetime
 
         return data
 
