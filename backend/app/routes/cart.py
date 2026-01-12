@@ -56,6 +56,29 @@ async def get_cart_items(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/{cart_item_id}", response_model=CartItemRead)
+async def get_cart_item(
+    cart_item_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(fastapi_users.current_user())
+):
+    try:
+        result = await session.execute(
+            select(CartItem)
+            .where(CartItem.id == cart_item_id)
+            .where(CartItem.owner_id == current_user.id)
+        )
+        cart_item = result.scalars().first()
+
+        if not cart_item:
+            raise HTTPException(status_code=404, detail="Cart item not found")
+
+        return cart_item
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("", response_model=CartItemRead)
@@ -67,7 +90,7 @@ async def add_to_cart(
 ):
     try:
         cache = CacheManager(redis)
-        # Check product
+        # 1️⃣ Check product
         result = await session.execute(
             select(Product).where(Product.id == item.product_id)
         )
@@ -79,7 +102,7 @@ async def add_to_cart(
         if product.stock < item.quantity:
             raise HTTPException(400, "Not enough stock")
 
-        # Check existing cart item
+        # 2️⃣ Check existing cart item
         result = await session.execute(
             select(CartItem)
             .where(CartItem.product_id == item.product_id)
@@ -98,6 +121,7 @@ async def add_to_cart(
             )
             session.add(existing_item)
 
+        # 3️⃣ Commit to DB
         await session.commit()
         await session.refresh(existing_item)
         await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))
