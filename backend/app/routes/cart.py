@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -23,29 +23,62 @@ CARTS_CACHE_KEY = "carts:{user_id}"
 async def get_cart_items(
     current_user: User = Depends(fastapi_users.current_user()),
     session: AsyncSession = Depends(get_async_session),
-    redis: Redis = Depends(get_redis)
+    redis: Redis = Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=100),       # items per page, default 20, max 100
 ):
     try:
         cache = CacheManager(redis)
-        cache_key = CARTS_CACHE_KEY.format(redis, user_id=current_user.id)
+        offset = (page - 1) * limit  # calculate offset from page
+        cache_key = f"CARTS:{current_user.id}:page:{page}:limit:{limit}"
 
-        cached = await redis.get(cache_key)
+        # 1️⃣ Check cache first
+        cached = await cache.get(cache_key)
         if cached:
             return [CartItemRead(**c) for c in json.loads(cached)]
-        
+
+        # 2️⃣ Query database with limit & offset
         result = await session.execute(
             select(CartItem)
             .where(CartItem.owner_id == current_user.id)
+            .offset(offset)
+            .limit(limit)
         )
         items = result.scalars().all()
 
+        # Convert to Pydantic dicts
         data = [CartItemRead.model_validate(c).model_dump() for c in items]
-        await cache.set(cache_key, json.dumps(data))
+
+        # 3️⃣ Save to cache (with datetime serialization fix)
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/{cart_item_id}", response_model=CartItemRead)
+async def get_cart_item(
+    cart_item_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(fastapi_users.current_user())
+):
+    try:
+        result = await session.execute(
+            select(CartItem)
+            .where(CartItem.id == cart_item_id)
+            .where(CartItem.owner_id == current_user.id)
+        )
+        cart_item = result.scalars().first()
+
+        if not cart_item:
+            raise HTTPException(status_code=404, detail="Cart item not found")
+
+        return cart_item
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("", response_model=CartItemRead)
@@ -57,7 +90,7 @@ async def add_to_cart(
 ):
     try:
         cache = CacheManager(redis)
-        # Check product
+        # 1️⃣ Check product
         result = await session.execute(
             select(Product).where(Product.id == item.product_id)
         )
@@ -69,7 +102,7 @@ async def add_to_cart(
         if product.stock < item.quantity:
             raise HTTPException(400, "Not enough stock")
 
-        # Check existing cart item
+        # 2️⃣ Check existing cart item
         result = await session.execute(
             select(CartItem)
             .where(CartItem.product_id == item.product_id)
@@ -88,6 +121,7 @@ async def add_to_cart(
             )
             session.add(existing_item)
 
+        # 3️⃣ Commit to DB
         await session.commit()
         await session.refresh(existing_item)
         await cache.invalidate(CARTS_CACHE_KEY.format(user_id=current_user.id))

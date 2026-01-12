@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional
@@ -26,35 +26,46 @@ async def get_todos(
     completed: Optional[bool] = None,
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(fastapi_users.current_user()),
-    redis: Redis = Depends(get_redis)
+    redis: Redis = Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=100),       # items per page, default 20, max 100
 ):
     try:
         cache = CacheManager(redis)
+        offset = (page - 1) * limit
+
+        # Include completed, page, and limit in cache key
         cache_key = (
             TODOS_CACHE_KEY.format(user_id=current_user.id)
             if completed is None
             else TODOS_COMPLETED_CACHE_KEY.format(user_id=current_user.id, completed=completed)
         )
+        cache_key = f"{cache_key}:page:{page}:limit:{limit}"
 
+        # 1️⃣ Return cached todos if available
         cached = await cache.get(cache_key)
         if cached:
             return [TodoRead(**t) for t in json.loads(cached)]
 
+        # 2️⃣ Query database with optional filter and pagination
         query = select(Todo).where(Todo.owner_id == current_user.id)
         if completed is not None:
             query = query.where(Todo.completed == completed)
 
-        result = await session.execute(query)
+        result = await session.execute(query.offset(offset).limit(limit))
         todos = result.scalars().all()
 
+        # 3️⃣ Serialize
         data = [TodoRead.model_validate(t).model_dump() for t in todos]
-        await cache.set(cache_key, json.dumps(data))
+
+        # 4️⃣ Cache the page
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 
 @router.get("/{todo_id}", response_model=TodoRead)
 async def get_todo(

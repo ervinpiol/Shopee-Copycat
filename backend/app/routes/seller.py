@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -66,7 +66,9 @@ async def get_seller(
 async def get_seller_orders(
     current_user: User = Depends(fastapi_users.current_user()),
     session: AsyncSession = Depends(get_async_session),
-    redis=Depends(get_redis)
+    redis=Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=100),       # items per page, default 20, max 100
 ):
     try:
         # Only sellers can access
@@ -74,18 +76,21 @@ async def get_seller_orders(
             raise HTTPException(status_code=403, detail="User is not a seller")
 
         cache = CacheManager(redis)
-        cache_key = SELLER_ORDERS_CACHE_KEY.format(id=current_user.id)
+        offset = (page - 1) * limit
+        cache_key = f"{SELLER_ORDERS_CACHE_KEY}:{current_user.id}:page:{page}:limit:{limit}"
 
         # Return cached orders if available
         cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
-        # Fetch orders where owner_id is the seller's user id
+        # Fetch orders where owner_id is the seller's user id with pagination
         result = await session.execute(
             select(SellerOrder)
             .options(selectinload(SellerOrder.shipping_address))
             .where(SellerOrder.owner_id == current_user.id)
+            .offset(offset)
+            .limit(limit)
         )
 
         orders = result.scalars().all()
@@ -96,11 +101,11 @@ async def get_seller_orders(
             for o in orders
         ]
 
-        # Cache per seller
-        await cache.set(cache_key, json.dumps(data))
+        # Cache per seller and per page
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -144,20 +149,26 @@ SELLER_PRODUCT_CACHE_KEY = "seller_products:{id}"
 async def get_seller_products(
     current_user: User = Depends(seller_required),
     session: AsyncSession = Depends(get_async_session),
-    redis=Depends(get_redis)
+    redis=Depends(get_redis),
+    page: int = Query(1, ge=1),                # page number, default 1
+    limit: int = Query(20, ge=1, le=100),      # items per page, default 20, max 100
 ):
     try:
         cache = CacheManager(redis)
-        cache_key = SELLER_PRODUCTS_CACHE_KEY.format(id=current_user.id)
+        offset = (page - 1) * limit
+        cache_key = f"{SELLER_PRODUCTS_CACHE_KEY}:{current_user.id}:page:{page}:limit:{limit}"
 
         # Return cached products if available
         cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
-        # Fetch products where owner_id is the seller's user id
+        # Fetch products where owner_id is the seller's user id with pagination
         result = await session.execute(
-            select(Product).where(Product.owner_id == current_user.id)
+            select(Product)
+            .where(Product.owner_id == current_user.id)
+            .offset(offset)
+            .limit(limit)
         )
 
         products = result.scalars().all()
@@ -168,11 +179,11 @@ async def get_seller_products(
             for p in products
         ]
 
-        # Cache per seller
-        await cache.set(cache_key, json.dumps(data))
+        # Cache per seller and per page
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

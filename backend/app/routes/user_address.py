@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from typing import List
 
 from app.db import get_async_session
 from app.routes.users import fastapi_users
@@ -25,33 +26,39 @@ router = APIRouter(prefix="/users/me/addresses", tags=["users"])
 ADDRESS_CACHE_KEY = "address:{id}"
 
 
-@router.get("", response_model=list[AddressRead])
+@router.get("", response_model=List[AddressRead])
 async def get_my_addresses(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
-    redis: Redis = Depends(get_redis)
+    redis: Redis = Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=100),       # items per page, default 20, max 100
 ):
     try:
         cache = CacheManager(redis)
-        cache_key = f"user:{user.id}:addresses"
+        offset = (page - 1) * limit
 
-        # Try to get cached addresses
+        # Cache key now includes page and limit
+        cache_key = f"user:{user.id}:addresses:page:{page}:limit:{limit}"
+
+        # 1️⃣ Try to get cached addresses
         cached = await cache.get(cache_key)
         if cached:
-            # Return list of addresses from cache
-            addresses = json.loads(cached)
-            return addresses
+            return [AddressRead(**a) for a in json.loads(cached)]
 
-        # Fetch from DB if cache miss
+        # 2️⃣ Fetch from DB with pagination
         result = await session.execute(
-            select(UserAddress).where(UserAddress.user_id == user.id)
+            select(UserAddress)
+            .where(UserAddress.user_id == user.id)
+            .offset(offset)
+            .limit(limit)
         )
         addresses = result.scalars().all()
 
-        # Convert to Pydantic models
+        # 3️⃣ Convert to Pydantic models
         data = [AddressRead.model_validate(a) for a in addresses]
 
-        # Cache for 5 minutes
+        # 4️⃣ Cache for 5 minutes
         await cache.set(cache_key, json.dumps(jsonable_encoder(data)), ttl=300)
 
         return data

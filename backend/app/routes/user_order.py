@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -25,15 +25,22 @@ async def get_orders(
     current_user: User = Depends(fastapi_users.current_user()),
     session: AsyncSession = Depends(get_async_session),
     redis=Depends(get_redis),
+    page: int = Query(1, ge=1),                 # page number, default 1
+    limit: int = Query(20, ge=1, le=100),       # items per page, default 20, max 100
 ):
     try:
         cache = CacheManager(redis)
-        cache_key = ORDERS_CACHE_KEY.format(user_id=current_user.id)
+        offset = (page - 1) * limit
 
+        # Cache key includes user, page, and limit
+        cache_key = f"{ORDERS_CACHE_KEY}:user:{current_user.id}:page:{page}:limit:{limit}"
+
+        # 1️⃣ Return cached orders if available
         cached = await cache.get(cache_key)
         if cached:
             return json.loads(cached)
 
+        # 2️⃣ Fetch orders from DB with pagination
         result = await session.execute(
             select(Order)
             .options(
@@ -41,22 +48,26 @@ async def get_orders(
                 selectinload(Order.shipping_address),
             )
             .where(Order.owner_id == current_user.id)
+            .offset(offset)
+            .limit(limit)
         )
 
         orders = result.scalars().all()
 
+        # 3️⃣ Serialize using Pydantic
         data = [
             OrderRead.model_validate(order).model_dump(mode="json")
             for order in orders
         ]
 
-        await cache.set(cache_key, json.dumps(data))
+        # 4️⃣ Cache per user and per page
+        await cache.set(cache_key, json.dumps(data, default=str))
 
         return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 
 @router.get("/{order_id}", response_model=OrderRead)
 async def get_order(
