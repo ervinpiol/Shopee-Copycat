@@ -8,8 +8,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DB_URL: postgresql+asyncpg://postgres.bzyxwswrtcdatuwyvhmv:xnctz5etAfZLujEg@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
-      REDIS_URL: redis://redis:6379/0
+      DB_URL: ${DB_URL}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       - redis
     restart: on-failure
